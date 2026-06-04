@@ -1,0 +1,25 @@
+{
+  "name": "speak-coach",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI 英语口语陪练工具",
+  "workspaces": [
+    "web",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w web\"",
+    "dev:web": "npm run dev -w web",
+    "dev:server": "npm run dev -w server",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w web",
+    "test": "npm run test -w shared && npm run test -w server && npm run test -w web",
+    "test:coverage": "npm run test:coverage -w shared && npm run test:coverage -w server && npm run test:coverage -w web",
+    "lint": "npm run lint -w shared && npm run lint -w server && npm run lint -w web"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

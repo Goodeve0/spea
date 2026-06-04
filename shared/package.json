@@ -1,0 +1,17 @@
+{
+  "name": "@speak-coach/shared",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./contracts.ts",
+  "types": "./contracts.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
