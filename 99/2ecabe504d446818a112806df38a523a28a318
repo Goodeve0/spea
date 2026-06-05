@@ -1,0 +1,23 @@
+web/src/pages/report-json.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 1-96
+web/src/pages/Conversation.tsx
+  s_94ac60683601c6::t_a53c90831e0899 368,380-384,399-400
+  s_94ac60683601c6::t_b1e7bd6cfabdc3 13
+  s_94ac60683601c6::t_a6a59d889f9997 408
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "992ecabe504d446818a112806df38a523a28a318",
+  "prompts": {},
+  "sessions": {
+    "s_94ac60683601c6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04222bb0-c637-4c0c-bd0e-09b9937c2906",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/iwn212cjpyff"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
