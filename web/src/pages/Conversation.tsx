@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSessionStore } from '../store/session';
-import { BrowserSpeechRecognition } from '../audio/speech-recognition';
-import { BrowserSpeechSynthesis } from '../audio/speech-synthesis';
+
 import { PRESET_SCENARIOS } from '@speak-coach/shared';
 import type { Scenario, Difficulty } from '@speak-coach/shared';
+
+import { BrowserSpeechRecognition } from '../audio/speech-recognition';
+import { getCurrentEngine, getEngine } from '../audio/tts-engine';
+import { initTtsEngines } from '../audio/tts-init';
+import SettingsPanel from '../components/SettingsPanel';
+import { useSessionStore } from '../store/session';
+import { useSettingsStore } from '../store/settings';
+
+initTtsEngines();
 
 export default function Conversation() {
   const navigate = useNavigate();
@@ -14,20 +21,56 @@ export default function Conversation() {
     appendAiText, resetAiText, setReport, reset,
   } = useSessionStore();
 
+  const ttsEngineId = useSettingsStore((s) => s.ttsEngine);
+  const iflytekVoice = useSettingsStore((s) => s.iflytekVoice);
+  const setIflytekDisabled = useSettingsStore((s) => s.setIflytekDisabled);
+  const setIflytekLastError = useSettingsStore((s) => s.setIflytekLastError);
+
   const isRecording = useSessionStore((s) => s.isRecording);
   const turns = useSessionStore((s) => s.turns);
   const [partialText, setPartialText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  const synthesisRef = useRef<BrowserSpeechSynthesis | null>(null);
+  const initializedRef = useRef(false);
+
+  const speakReply = useCallback((text: string, onEnd?: () => void) => {
+    const settings = useSettingsStore.getState();
+    const engineId = settings.ttsEngine;
+    const engine = getEngine(engineId) ?? getCurrentEngine();
+
+    engine.speak(text, {
+      voice: settings.iflytekVoice,
+      onEnd,
+      onError: (err) => {
+        console.error('[Conversation.speakReply] tts error, engineId:', engineId, err);
+        if (engineId !== 'iflytek') return;
+
+        // 记录错误信息供 SettingsPanel 展示
+        setIflytekLastError(err.message);
+
+        // 区分"引擎级失败（如鉴权/连接）"与"音色级失败（vcn 未授权）"
+        const isVoiceIssue = /11119|vcn|voice|发音人/i.test(err.message);
+        if (!isVoiceIssue) {
+          setIflytekDisabled(true);
+        }
+
+        // 用浏览器引擎朗读当前句，不打断对话
+        const fallback = getEngine('browser');
+        fallback?.speak(text, { onEnd });
+      },
+    });
+  }, [setIflytekDisabled, setIflytekLastError]);
 
   // 初始化
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     recognitionRef.current = new BrowserSpeechRecognition();
-    synthesisRef.current = new BrowserSpeechSynthesis();
 
     // 自动发开场白
     if (turns.length === 0) {
@@ -38,17 +81,27 @@ export default function Conversation() {
 
       // 生成开场白
       generateGreeting(scenario).then((greeting) => {
-        addTurn({ id: 'greeting', sessionId: 'local-session', role: 'ai', text: greeting, timestamp: Date.now() });
-        // 语音播放开场白
-        synthesisRef.current?.speak(greeting);
+        addTurn({ id: `greeting-${Date.now()}`, sessionId: 'local-session', role: 'ai', text: greeting, timestamp: Date.now() });
+        speakReply(greeting);
       });
     }
 
     return () => {
       recognitionRef.current?.stop();
-      synthesisRef.current?.stop();
+      const engine = getEngine('browser');
+      engine?.stop();
+      const iflytek = getEngine('iflytek');
+      iflytek?.stop();
     };
   }, []);
+
+  // 切换引擎时停掉旧引擎
+  useEffect(() => {
+    return () => {
+      const engine = getEngine(ttsEngineId);
+      engine?.stop();
+    };
+  }, [ttsEngineId]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -130,7 +183,7 @@ export default function Conversation() {
       resetAiText();
 
       // 语音播放
-      synthesisRef.current?.speak(reply, () => {
+      speakReply(reply, () => {
         setAiSpeaking(false);
       });
     } catch (err) {
@@ -396,12 +449,22 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
               <p className="text-xs text-gray-400">Speak or type in English</p>
             </div>
           </div>
-          <button
-            onClick={handleEndSession}
-            className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors border border-red-100"
-          >
-            End Session
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Settings"
+              title="设置"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+            >
+              ⚙️
+            </button>
+            <button
+              onClick={handleEndSession}
+              className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors border border-red-100"
+            >
+              End Session
+            </button>
+          </div>
         </div>
 
         {/* Chat area */}
@@ -562,6 +625,8 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
           {isLoading && !isAiSpeaking && !isRecording && '💭 Thinking...'}
         </div>
       </div>
+
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

@@ -44,6 +44,8 @@ export class WsGateway {
     private readonly asrService: IAsrService,
     private readonly ttsService: ITtsService,
     private readonly pronunciationService: IPronunciationService,
+    /** 独立 TTS 服务，专供前端 `tts.request` 通道使用（通常注入讯飞实例） */
+    private readonly bridgeTtsService: ITtsService = ttsService,
   ) {}
 
   /** 启动 WebSocket 服务 */
@@ -90,6 +92,9 @@ export class WsGateway {
         break;
       case 'session.end':
         await this.handleSessionEnd(ws);
+        break;
+      case 'tts.request':
+        await this.handleTtsRequest(ws, payload as ClientPayload.TtsRequest);
         break;
       default:
         this.sendError(ws, 'INVALID_MESSAGE', `Unknown message type: ${type}`);
@@ -238,6 +243,45 @@ export class WsGateway {
 
     this.sessions.delete(session.id);
     this.clientSessions.delete(ws);
+  }
+
+  /**
+   * 独立的 TTS 通道：前端无需 session.start 即可请求合成。
+   * 按帧把音频回推为 `tts.audio`，结束后发 `tts.done`，失败发 `tts.error`。
+   */
+  private async handleTtsRequest(ws: WebSocket, payload: ClientPayload.TtsRequest): Promise<void> {
+    const requestId = payload?.requestId;
+    const text = payload?.text ?? '';
+    const voice = payload?.voice;
+
+    if (!requestId) {
+      this.sendError(ws, 'INVALID_MESSAGE', 'tts.request missing requestId');
+      return;
+    }
+
+    if (!text.trim()) {
+      this.send(ws, 'tts.done', { requestId });
+      return;
+    }
+
+    let seq = 0;
+    try {
+      await this.bridgeTtsService.synthesize(
+        text,
+        (chunk) => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          const audio = Buffer.from(chunk).toString('base64');
+          this.send(ws, 'tts.audio', { requestId, seq, audio });
+          seq += 1;
+        },
+        voice,
+      );
+      this.send(ws, 'tts.done', { requestId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[WsGateway.handleTtsRequest] failed, requestId:', requestId, err);
+      this.send(ws, 'tts.error', { requestId, code: 'TTS_FAILED', message });
+    }
   }
 
   private getSession(ws: WebSocket): SessionState | undefined {

@@ -61,6 +61,10 @@ export class WsClient {
     this.ws.send(JSON.stringify({ type, payload }));
   }
 
+  isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
   startSession(scenarioId: string, difficulty: Difficulty): void {
     this.send('session.start', { scenarioId, difficulty } as ClientPayload.SessionStart);
   }
