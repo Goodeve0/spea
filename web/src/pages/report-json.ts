@@ -10,7 +10,9 @@ interface RawReport {
   vocabulary?: number;
   taskCompletion?: number;
   topErrors?: Array<{ errorType?: string; count?: number; example?: string }>;
-  expressionUpgrades?: Array<{ from?: string; to?: string }>;
+  expressionUpgrades?: Array<{ from?: string; to?: string; why?: string }>;
+  recasts?: Array<{ turnId?: string; original?: string; recast?: string }>;
+  cefr?: string;
   summaryText?: string;
 }
 
