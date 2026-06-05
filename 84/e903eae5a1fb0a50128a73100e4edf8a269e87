@@ -1,0 +1,69 @@
+web/src/audio/speech-synthesis.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 3,6-10,14-15,18-29,50,53,55-58,66,73,77-86,89-91
+shared/contracts.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 128-129,140-142,157-161,194-203
+web/src/components/SettingsPanel.tsx
+  s_94ac60683601c6::t_8e02f846feb9ac 1-143
+openspec/changes/archive/2026-06-05-add-iflytek-tts/specs/tts-settings-ui/spec.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-53
+server/src/modules/tts.service.test.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 1-4,31-141
+web/src/audio/tts-init.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 1-18
+web/src/pages/Conversation.tsx
+  s_94ac60683601c6::t_8e02f846feb9ac 3,7-15,24-28,35,38-66,70-72,84-85,91-94,98-105,186,452-467,628-629
+openspec/changes/archive/2026-06-05-add-iflytek-tts/design.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-115
+server/src/gateway/ws-gateway.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 47-48,96-98,248-284
+.env.example
+  s_94ac60683601c6::t_f35e5d4939237a 12-20
+web/src/audio/iflytek-voices.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 1-32
+openspec/changes/archive/2026-06-05-add-iflytek-tts/specs/tts-engine/spec.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-41
+openspec/changes/archive/2026-06-05-add-iflytek-tts/specs/iflytek-tts-bridge/spec.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-53
+openspec/changes/archive/2026-06-05-add-iflytek-tts/tasks.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-65
+openspec/changes/archive/2026-06-05-add-iflytek-tts/.openspec.yaml
+  s_94ac60683601c6::t_8e02f846feb9ac 1-2
+web/src/store/settings.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 1-98
+web/src/audio/iflytek-tts-client.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 1-216
+openspec/specs/iflytek-tts-bridge/spec.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-57
+server/src/main.ts
+  s_94ac60683601c6::t_00dd420c4936cd 9,20,30
+web/src/audio/tts-engine.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 1-68
+docs/tts.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-71
+openspec/changes/archive/2026-06-05-add-iflytek-tts/proposal.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-50
+web/src/ws-client/index.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 64-67
+openspec/specs/tts-settings-ui/spec.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-57
+server/src/modules/tts.service.ts
+  s_94ac60683601c6::t_8e02f846feb9ac 1-4,8,58-161
+openspec/specs/tts-engine/spec.md
+  s_94ac60683601c6::t_8e02f846feb9ac 1-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "84e903eae5a1fb0a50128a73100e4edf8a269e87",
+  "prompts": {},
+  "sessions": {
+    "s_94ac60683601c6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04222bb0-c637-4c0c-bd0e-09b9937c2906",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/iwn212cjpyff"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
