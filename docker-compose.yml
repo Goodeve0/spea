@@ -1,0 +1,33 @@
+# 一键起后端（账号/数据 HTTP + 对话 WS），SQLite 持久化到命名卷。
+# 变量从根 .env 读取（compose 自动加载根目录 .env 做插值）。
+# 用法：docker compose up -d --build
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:3001" # WS（对话/TTS/ASR）
+      - "3002:3002" # HTTP API（账号/数据）
+    environment:
+      # 数据库：SQLite 文件落在挂载卷，重启不丢
+      DATABASE_URL: "file:/data/app.db"
+      JWT_SECRET: "${JWT_SECRET:-please-change-in-prod}"
+      HTTP_PORT: "3002"
+      WS_PORT: "3001"
+      # LLM
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL}"
+      LLM_MODEL: "${LLM_MODEL:-deepseek-v3}"
+      # 发音评测 / TTS（讯飞）
+      PRONUNCIATION_PROVIDER: "${PRONUNCIATION_PROVIDER:-iflytek}"
+      XFYUN_APP_ID: "${XFYUN_APP_ID}"
+      XFYUN_API_KEY: "${XFYUN_API_KEY}"
+      XFYUN_API_SECRET: "${XFYUN_API_SECRET}"
+    volumes:
+      - speakcoach-db:/data
+
+volumes:
+  speakcoach-db:
