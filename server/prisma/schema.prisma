@@ -1,0 +1,73 @@
+// Prisma schema · Speak Coach 持久层
+// dev/test 用 SQLite；生产可切换 provider = "postgresql"（字段保持跨库兼容，JSON 以文本存）
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime  @default(now())
+
+  sessions Session[]
+  reports  Report[]
+}
+
+model Session {
+  id            String   @id // 客户端生成的稳定 id（便于幂等合并）
+  userId        String
+  scenarioId    String
+  difficulty    String
+  overallScore  Int
+  cefrEstimate  String?
+  hasUserSpeech Boolean  @default(true)
+  audioRef      String? // 预留：音频回放对象存储引用（P2）
+  timestamp     BigInt // 会话发生时间（epoch ms）
+  radar         String // JSON 文本：RadarScores
+  createdAt     DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns  Turn[]
+  report Report?
+
+  @@index([userId])
+}
+
+model Turn {
+  id        String  @id @default(cuid())
+  sessionId String
+  role      String // 'user' | 'ai'
+  text      String
+  ts        BigInt
+  audioRef  String? // 预留：逐句音频引用（P2）
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model Report {
+  id                 String   @id @default(cuid())
+  sessionId          String   @unique
+  userId             String
+  radar              String // JSON
+  topErrors          String // JSON
+  expressionUpgrades String // JSON
+  recasts            String // JSON
+  summaryText        String
+  cefrEstimate       String?
+  createdAt          DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

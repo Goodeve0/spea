@@ -51,11 +51,28 @@ export class IflytekTtsEngine implements ITtsEngine {
     this.ensureSubscription();
     this.ensureAudioContext();
 
-    client.send('tts.request', {
-      requestId,
-      text,
-      voice: options?.voice ?? DEFAULT_IFLYTEK_VOICE,
-    });
+    // #10 等待 WS 就绪后再发送，避免连接未建立时静默丢消息
+    client
+      .waitForOpen()
+      .then(() => {
+        // 期间可能已被新的 speak()/stop() 取消
+        if (!this.active || this.active.requestId !== requestId) return;
+        client.send('tts.request', {
+          requestId,
+          text,
+          voice: options?.voice ?? DEFAULT_IFLYTEK_VOICE,
+        });
+      })
+      .catch((err: Error) => {
+        if (!this.active || this.active.requestId !== requestId) return;
+        console.error('[IflytekTtsEngine.speak] WS 未就绪:', err);
+        this.disabled = true;
+        const e = new Error(`讯飞 TTS 不可用：后端 WS 未连接（${err.message}）。请确认服务端已启动。`);
+        const opts = this.active.options;
+        this.active = null;
+        opts?.onError?.(e);
+        opts?.onEnd?.();
+      });
   }
 
   stop(): void {

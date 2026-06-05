@@ -9,6 +9,7 @@ import { OpenAIAsrService } from './modules/asr.service';
 import { IflytekTtsService, OpenAITtsService } from './modules/tts.service';
 import { createPronunciationService, resolvePronunciationProvider } from './modules/pronunciation.service';
 import { WsGateway } from './gateway/ws-gateway';
+import { createHttpApp } from './http/app';
 
 async function bootstrap() {
   const llm = new OpenAILlmClient();
@@ -32,6 +33,12 @@ async function bootstrap() {
 
   const wsPort = parseInt(process.env.WS_PORT ?? '3001', 10);
   gateway.start(wsPort);
+
+  // HTTP API（账号 / 数据持久化），与 WS 并存
+  const httpPort = parseInt(process.env.HTTP_PORT ?? '3002', 10);
+  createHttpApp().listen(httpPort, () => {
+    console.log(`HTTP API running on http://localhost:${httpPort}`);
+  });
 
   const pronunciationProvider = resolvePronunciationProvider(process.env.PRONUNCIATION_PROVIDER);
   console.log(`WebSocket server running on ws://localhost:${wsPort}`);
