@@ -6,7 +6,7 @@ import { DialogService } from './modules/dialog.service';
 import { CorrectionService } from './modules/correction.service';
 import { ReportService } from './modules/report.service';
 import { OpenAIAsrService } from './modules/asr.service';
-import { OpenAITtsService } from './modules/tts.service';
+import { IflytekTtsService, OpenAITtsService } from './modules/tts.service';
 import { createPronunciationService, resolvePronunciationProvider } from './modules/pronunciation.service';
 import { WsGateway } from './gateway/ws-gateway';
 
@@ -17,6 +17,7 @@ async function bootstrap() {
   const reportService = new ReportService(llm);
   const asrService = new OpenAIAsrService();
   const ttsService = new OpenAITtsService();
+  const iflytekTtsService = new IflytekTtsService();
   const pronunciationService = createPronunciationService();
 
   const gateway = new WsGateway(
@@ -26,6 +27,7 @@ async function bootstrap() {
     asrService,
     ttsService,
     pronunciationService,
+    iflytekTtsService,
   );
 
   const wsPort = parseInt(process.env.WS_PORT ?? '3001', 10);

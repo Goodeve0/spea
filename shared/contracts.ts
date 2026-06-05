@@ -125,7 +125,8 @@ export type ClientMessageType =
   | 'session.start'
   | 'audio.chunk'
   | 'audio.end'
-  | 'session.end';
+  | 'session.end'
+  | 'tts.request';
 
 // 服务端 → 客户端 消息类型
 export type ServerMessageType =
@@ -136,6 +137,9 @@ export type ServerMessageType =
   | 'ai.audio'
   | 'ai.done'
   | 'report.ready'
+  | 'tts.audio'
+  | 'tts.done'
+  | 'tts.error'
   | 'error';
 
 // 各消息的 payload 类型
@@ -150,6 +154,11 @@ export namespace ClientPayload {
   }
   export type AudioEnd = Record<string, never>;
   export type SessionEnd = Record<string, never>;
+  export interface TtsRequest {
+    requestId: string;
+    text: string;
+    voice?: string;
+  }
 }
 
 export namespace ServerPayload {
@@ -179,6 +188,19 @@ export namespace ServerPayload {
     report: Report;
   }
   export interface ErrorPayload {
+    code: ErrorCode;
+    message: string;
+  }
+  export interface TtsAudio {
+    requestId: string;
+    seq: number;
+    audio: string; // base64 编码的 PCM 16kHz/16bit/mono
+  }
+  export interface TtsDone {
+    requestId: string;
+  }
+  export interface TtsError {
+    requestId: string;
     code: ErrorCode;
     message: string;
   }
