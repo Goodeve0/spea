@@ -10,6 +10,7 @@ import { initTtsEngines } from '../audio/tts-init';
 import SettingsPanel from '../components/SettingsPanel';
 import { useSessionStore } from '../store/session';
 import { useSettingsStore } from '../store/settings';
+import { parseReportJson } from './report-json';
 
 initTtsEngines();
 
@@ -364,7 +365,7 @@ export default function Conversation() {
     const userMessages = userTurns.map((t, i) => `${i + 1}. "${t.text}"`).join('\n');
 
     const systemPrompt = `You are an English speaking coach. Analyze the student's conversation and generate a performance report.
-You MUST respond with ONLY a valid JSON object (no markdown, no code fences) with this exact structure:
+You MUST respond with ONLY a valid JSON object (no markdown, no code fences). Use this exact structure:
 {
   "pronunciation": <number 0-100>,
   "fluency": <number 0-100>,
@@ -375,6 +376,11 @@ You MUST respond with ONLY a valid JSON object (no markdown, no code fences) wit
   "expressionUpgrades": [{"from": "<original>", "to": "<better alternative>"}],
   "summaryText": "<2-3 sentence summary in Chinese>"
 }
+
+CRITICAL RULES:
+- All string values must be valid JSON strings. Inside string values, escape ALL double quotes as \\" — never write a bare " inside a string.
+- Prefer single quotes (') or no quotes when quoting fragments inside example/from/to. e.g.  "example": "he go → he goes"  not  "example": "\"he go\" → \"he goes\""
+- No trailing commas. No comments. Output only the JSON object.
 
 Be encouraging but honest. Scores should reflect real assessment. If the user made no errors, give high scores and empty arrays.`;
 
@@ -390,8 +396,8 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Here are the student's messages during the conversation:\n${userMessages}` },
         ],
-        max_tokens: 500,
-        temperature: 0.3,
+        max_tokens: 800,
+        temperature: 0.2,
       }),
     });
 
@@ -399,13 +405,7 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? '';
-
-    // 解析 JSON（可能被包在 code fence 中）
-    let jsonStr = content.trim();
-    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) jsonStr = fenceMatch[1].trim();
-
-    const parsed = JSON.parse(jsonStr);
+    const parsed = parseReportJson(content);
 
     return {
       sessionId: 'local-session',
