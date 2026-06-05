@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(echo \"$CLAUDE_TOOL_INPUT\" | python3 -c \"import sys,json; print(json.load(sys.stdin).get('file_path',''))\" 2>/dev/null) && ext=\"${file##*.}\" && case \"$ext\" in ts|tsx|js|jsx) cd /Users/temptrip/Desktop/pro/spea && npx eslint --fix \"$file\" 2>/dev/null; npx prettier --write \"$file\" 2>/dev/null;; esac"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before allowing the session to stop, verify whether any new file was created in this session. For every new code/test file, confirm Claude explicitly compared it against at least 1-2 neighboring files in the same directory and aligned the local style, including indentation, quote style, import grouping/order, blank lines, export style, and test style. Local neighboring-file style overrides generic model defaults. If this comparison was not done or the new file still appears to follow generic default formatting, block stopping and instruct Claude to read neighboring files and fix the formatting first."
+          }
+        ]
+      }
+    ]
+  }
+}
