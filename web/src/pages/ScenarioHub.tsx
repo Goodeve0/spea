@@ -87,8 +87,8 @@ export default function ScenarioHub() {
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-line">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2 font-extrabold text-ink">
-            <Mascot size={30} />
-            <span className="hidden sm:inline">Speak Coach</span>
+            <Mascot size={38} />
+            <span className="hidden sm:inline text-lg">Speak Coach</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 text-sm font-bold">
             <LevelBar totalXp={xp} />
@@ -215,13 +215,6 @@ export default function ScenarioHub() {
         <div className="mt-12">
           <h3 className="text-sm font-extrabold text-ink mb-3 text-center">🏅 我的成就</h3>
           <AchievementWall achievements={achievements} />
-        </div>
-
-        {/* Tip */}
-        <div className="mt-10 text-center">
-          <span className="inline-flex items-center gap-2 px-4 py-2 bg-warning/15 rounded-full text-sm font-medium text-yellow-700">
-            💡 Tip：用 Chrome 浏览器体验最佳语音识别效果
-          </span>
         </div>
       </main>
     </div>

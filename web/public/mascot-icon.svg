@@ -1,36 +1,31 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="112" fill="#ffffff"/>
-  <g transform="translate(106 106) scale(2.5)">
-    <!-- 身体 -->
-    <ellipse cx="60" cy="64" rx="40" ry="42" fill="#2EC4B6"/>
-    <ellipse cx="60" cy="64" rx="40" ry="42" fill="url(#g)" fill-opacity="0.25"/>
-    <!-- 肚皮 -->
-    <ellipse cx="60" cy="74" rx="26" ry="28" fill="#E6F8F6"/>
+  <!-- 品牌青绿圆角底：填满，任意 tab 栏都有清晰边界 -->
+  <rect width="512" height="512" rx="120" fill="#2EC4B6"/>
+  <rect width="512" height="512" rx="120" fill="url(#bg)" fill-opacity="0.28"/>
+  <!-- 居中放大的白色吉祥物（高对比，去掉小尺寸糊掉的小苗/长杆细节） -->
+  <g transform="translate(96 112) scale(2.6)">
+    <!-- 白色脸/身体 -->
+    <ellipse cx="60" cy="60" rx="46" ry="46" fill="#fff"/>
     <!-- 眼睛 -->
-    <circle cx="48" cy="56" r="8" fill="#fff"/>
-    <circle cx="72" cy="56" r="8" fill="#fff"/>
-    <circle cx="49" cy="57" r="4" fill="#2B2B2B"/>
-    <circle cx="73" cy="57" r="4" fill="#2B2B2B"/>
-    <circle cx="50.5" cy="55.5" r="1.3" fill="#fff"/>
-    <circle cx="74.5" cy="55.5" r="1.3" fill="#fff"/>
+    <circle cx="46" cy="54" r="8.5" fill="#2B2B2B"/>
+    <circle cx="74" cy="54" r="8.5" fill="#2B2B2B"/>
+    <circle cx="48.5" cy="51.5" r="2.4" fill="#fff"/>
+    <circle cx="76.5" cy="51.5" r="2.4" fill="#fff"/>
     <!-- 腮红 -->
-    <circle cx="40" cy="68" r="4" fill="#FF9F1C" fill-opacity="0.4"/>
-    <circle cx="80" cy="68" r="4" fill="#FF9F1C" fill-opacity="0.4"/>
+    <circle cx="35" cy="66" r="5" fill="#FF9F1C" fill-opacity="0.55"/>
+    <circle cx="85" cy="66" r="5" fill="#FF9F1C" fill-opacity="0.55"/>
     <!-- 微笑 -->
-    <path d="M52 70 Q60 78 68 70" stroke="#2B2B2B" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-    <!-- 头顶小苗 -->
-    <path d="M60 22 Q60 14 66 12" stroke="#21998E" stroke-width="3" stroke-linecap="round" fill="none"/>
-    <ellipse cx="67" cy="11" rx="4" ry="2.5" fill="#58CC02" transform="rotate(30 67 11)"/>
-    <!-- 耳麦 -->
-    <path d="M30 56 Q30 34 60 34 Q90 34 90 56" stroke="#FF9F1C" stroke-width="4" stroke-linecap="round" fill="none"/>
-    <rect x="26" y="54" width="9" height="16" rx="4" fill="#FF9F1C"/>
-    <rect x="85" y="54" width="9" height="16" rx="4" fill="#FF9F1C"/>
+    <path d="M49 67 Q60 78 71 67" stroke="#2B2B2B" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <!-- 耳麦（橙，跨头顶） -->
+    <path d="M24 58 Q24 30 60 30 Q96 30 96 58" stroke="#FF9F1C" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <rect x="17" y="54" width="13" height="20" rx="6.5" fill="#FF9F1C"/>
+    <rect x="90" y="54" width="13" height="20" rx="6.5" fill="#FF9F1C"/>
     <!-- 麦克风 -->
-    <path d="M30 70 Q30 88 50 88" stroke="#FF9F1C" stroke-width="3" stroke-linecap="round" fill="none"/>
-    <circle cx="52" cy="88" r="4" fill="#FF4B4B"/>
+    <path d="M24 74 Q24 96 47 96" stroke="#FF9F1C" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <circle cx="49" cy="96" r="5.5" fill="#FF4B4B"/>
   </g>
   <defs>
-    <linearGradient id="g" x1="60" y1="22" x2="60" y2="106" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse">
       <stop stop-color="#fff"/>
       <stop offset="1" stop-color="#2EC4B6" stop-opacity="0"/>
     </linearGradient>
