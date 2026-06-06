@@ -10,6 +10,28 @@ export class BrowserSpeechSynthesisEngine implements ITtsEngine {
 
   private utterance: SpeechSynthesisUtterance | null = null;
   private speaking = false;
+  private cachedVoices: SpeechSynthesisVoice[] = [];
+
+  constructor() {
+    // #8 voices 在 Chrome 中异步加载，首次 getVoices() 可能为空。
+    // 预加载一次，并监听 voiceschanged 持续刷新缓存。
+    if (this.isSupported()) {
+      this.cachedVoices = speechSynthesis.getVoices();
+      speechSynthesis.addEventListener?.('voiceschanged', () => {
+        this.cachedVoices = speechSynthesis.getVoices();
+      });
+    }
+  }
+
+  /** 选取英文音色，优先美式女声；缓存为空时回退到实时查询 */
+  private pickEnglishVoice(): SpeechSynthesisVoice | undefined {
+    const voices = this.cachedVoices.length > 0 ? this.cachedVoices : speechSynthesis.getVoices();
+    return (
+      voices.find((v) => v.lang.startsWith('en') && /female/i.test(v.name)) ??
+      voices.find((v) => v.lang.startsWith('en-US')) ??
+      voices.find((v) => v.lang.startsWith('en'))
+    );
+  }
 
   speak(text: string, options?: TtsSpeakOptions | (() => void)): void {
     const opts: TtsSpeakOptions | undefined = typeof options === 'function' ? { onEnd: options } : options;
@@ -33,10 +55,7 @@ export class BrowserSpeechSynthesisEngine implements ITtsEngine {
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
-    const voices = speechSynthesis.getVoices();
-    const englishVoice = voices.find((v) => v.lang.startsWith('en') && v.name.includes('Female'))
-      ?? voices.find((v) => v.lang.startsWith('en-US'))
-      ?? voices.find((v) => v.lang.startsWith('en'));
+    const englishVoice = this.pickEnglishVoice();
     if (englishVoice) {
       utterance.voice = englishVoice;
     }

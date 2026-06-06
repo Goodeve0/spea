@@ -67,6 +67,7 @@ export class ReportService implements IReportService {
       radar,
       topErrors,
       expressionUpgrades,
+      recasts: [], // 服务端报告暂不产出隐性重述，前端 report-generator 负责
       summaryText,
       annotatedTurns,
     };
@@ -136,7 +137,7 @@ export class ReportService implements IReportService {
   private computeExpressionUpgrades(corrections: Correction[]): ExpressionUpgrade[] {
     return corrections
       .filter((c) => c.betterExpression)
-      .map((c) => ({ from: c.original, to: c.betterExpression! }));
+      .map((c) => ({ from: c.original, to: c.betterExpression!, why: c.explanation || '更地道的表达' }));
   }
 
   /** 生成文字总结 */

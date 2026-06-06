@@ -65,6 +65,23 @@ export class WsClient {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
+  /** 等待连接进入 OPEN；超时则 reject。用于发送前确保通道就绪。 */
+  waitForOpen(timeoutMs = 5000): Promise<void> {
+    if (this.isOpen()) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const timer = setInterval(() => {
+        if (this.isOpen()) {
+          clearInterval(timer);
+          resolve();
+        } else if (Date.now() - start >= timeoutMs) {
+          clearInterval(timer);
+          reject(new Error('WebSocket connection timeout'));
+        }
+      }, 50);
+    });
+  }
+
   startSession(scenarioId: string, difficulty: Difficulty): void {
     this.send('session.start', { scenarioId, difficulty } as ClientPayload.SessionStart);
   }

@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { createServer } from 'http';
+import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { randomUUID } from 'crypto';
 import type { DialogService } from '../modules/dialog.service';
 import type { CorrectionService } from '../modules/correction.service';
@@ -50,7 +50,15 @@ export class WsGateway {
 
   /** 启动 WebSocket 服务 */
   start(port: number): void {
-    const server = createServer();
+    const server = createServer((req, res) => {
+      this.handleHttp(req, res).catch((err) => {
+        console.error('[WsGateway.handleHttp] unhandled error:', err);
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+        }
+        res.end(JSON.stringify({ error: 'Internal proxy error' }));
+      });
+    });
     this.wss = new WebSocketServer({ server });
 
     this.wss.on('connection', (ws) => {
@@ -73,6 +81,108 @@ export class WsGateway {
 
     server.listen(port, () => {
       console.log(`WebSocket server listening on port ${port}`);
+    });
+  }
+
+  /** HTTP 路由：仅用于 LLM 代理，保证 API Key 不下发到前端 */
+  private async handleHttp(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    // CORS（前端与后端不同端口）
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const url = req.url ?? '';
+    if (req.method === 'POST' && url === '/api/chat/completions') {
+      await this.proxyChatCompletions(req, res);
+      return;
+    }
+
+    if (req.method === 'GET' && url === '/api/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, hasApiKey: Boolean(process.env.OPENAI_API_KEY) }));
+      return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  }
+
+  /**
+   * 透明代理 /chat/completions：
+   * - 注入后端的 Authorization（API Key 留在服务端）
+   * - 原样转发请求体（messages/model/stream/temperature 等）
+   * - 流式响应按 SSE 字节流回传，非流式则整体回传
+   */
+  private async proxyChatCompletions(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
+
+    if (!apiKey) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'OPENAI_API_KEY is not set on the server' }));
+      return;
+    }
+
+    // 读取请求体
+    const rawBody = await this.readRequestBody(req);
+
+    let upstream: Response;
+    try {
+      upstream = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: rawBody,
+      });
+    } catch (err) {
+      console.error('[WsGateway.proxyChatCompletions] upstream fetch failed:', err);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Upstream LLM request failed' }));
+      return;
+    }
+
+    const contentType = upstream.headers.get('content-type') ?? 'application/json';
+    res.writeHead(upstream.status, {
+      'Content-Type': contentType,
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache',
+    });
+
+    if (!upstream.body) {
+      res.end();
+      return;
+    }
+
+    // 逐块回传（同时支持 SSE 流与普通 JSON）
+    const reader = upstream.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) res.write(Buffer.from(value));
+      }
+    } catch (err) {
+      console.error('[WsGateway.proxyChatCompletions] stream relay error:', err);
+    } finally {
+      res.end();
+    }
+  }
+
+  /** 读取 HTTP 请求体为字符串 */
+  private readRequestBody(req: IncomingMessage): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+      req.on('error', reject);
     });
   }
 
