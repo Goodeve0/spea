@@ -3,13 +3,16 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import Mascot from './ui/Mascot';
 import LevelBar from './ui/LevelBar';
 import { MelonIcon } from './icons';
+import { UserAvatar } from './user-avatar';
 import { NAV_ITEMS } from './nav-items';
 import { useAuthStore } from '../store/auth';
+import { useSettingsStore } from '../store/settings';
 
 /** 桌面端固定侧边栏（md 及以上显示）。 */
 export default function Sidebar({ xp, streak }: { xp: number; streak: number }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const avatarKey = useSettingsStore((s) => s.avatarKey);
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-60 md:flex-shrink-0 md:sticky md:top-0 md:h-screen bg-white border-r border-line">
@@ -51,9 +54,7 @@ export default function Sidebar({ xp, streak }: { xp: number; streak: number }) 
             onClick={() => navigate('/profile')}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-canvas transition-colors"
           >
-            <span className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-extrabold flex-shrink-0">
-              {user.displayName.slice(0, 1).toUpperCase()}
-            </span>
+            <UserAvatar avatarKey={avatarKey} size={36} />
             <span className="text-ink font-bold truncate text-left">{user.displayName}</span>
           </button>
         ) : (

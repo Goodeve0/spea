@@ -77,9 +77,13 @@ const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first_step', icon: '🌱', title: '呱呱坠地', desc: '完成第 1 次练习', check: (c) => c.sessions.length >= 1 },
   { id: 'streak_3', icon: '💧', title: '勤浇水', desc: '连续练习 3 天', check: (c) => c.streak >= 3 },
   { id: 'streak_7', icon: '🌿', title: '瓜藤盘绕', desc: '连续练习 7 天', check: (c) => c.streak >= 7 },
+  { id: 'streak_14', icon: '🍂', title: '瓜熟蒂落', desc: '连续练习 14 天', check: (c) => c.streak >= 14 },
   { id: 'ten_sessions', icon: '🧺', title: '老瓜熟路', desc: '累计练习 10 次', check: (c) => c.sessions.length >= 10 },
+  { id: 'night_owl', icon: '🦉', title: '夜半偷瓜', desc: '22:00-6:00 完成练习', check: (c) => c.sessions.some((s) => { const h = new Date(s.timestamp).getHours(); return h >= 22 || h < 6; }) },
+  { id: 'speed_run', icon: '⚡', title: '速成瓜', desc: '同一天练 3 次', check: (c) => { const dayCounts: Record<number, number> = {}; c.sessions.forEach((s) => { const d = startOfDay(s.timestamp); dayCounts[d] = (dayCounts[d] || 0) + 1; }); return Object.values(dayCounts).some((n) => n >= 3); } },
   { id: 'high_scorer', icon: '🍯', title: '甜度爆表', desc: '单次综合分 ≥ 90', check: (c) => c.sessions.some((s) => s.overallScore >= 90) },
   { id: 'all_rounder', icon: '🍈', title: '瓜样百出', desc: '体验 3 种不同场景', check: (c) => new Set(c.sessions.map((s) => s.scenarioId)).size >= 3 },
+  { id: 'perfect_five', icon: '👑', title: '瓜神降临', desc: '5 维能力全 ≥ 80', check: (c) => c.sessions.some((s) => { const r = s.radar; return r.pronunciation >= 80 && r.fluency >= 80 && r.grammar >= 80 && r.vocabulary >= 80 && r.taskCompletion >= 80; }) },
 ];
 
 export function evaluateAchievements(sessions: StoredSession[], streak: number): Achievement[] {

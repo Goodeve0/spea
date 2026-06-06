@@ -155,17 +155,17 @@ export default function Report() {
       )}
 
       {/* 顶部固定导航栏 */}
-      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-line">
-        <div className="max-w-4xl mx-auto px-4 h-12 flex items-center justify-between">
+      <nav className="sticky top-0 z-30 bg-white/85 backdrop-blur-lg border-b border-line">
+        <div className="max-w-4xl mx-auto px-5 h-14 flex items-center justify-between">
           <button
             onClick={goHome}
-            className="flex items-center gap-1.5 text-sm font-bold text-sub hover:text-ink transition-colors -ml-1 px-2 py-1 rounded-xl hover:bg-canvas"
+            className="flex items-center gap-2 text-sm font-bold text-sub hover:text-ink transition-colors -ml-1.5 px-3 py-2 rounded-xl hover:bg-canvas"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-            返回
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            返回首页
           </button>
-          <span className="font-extrabold text-ink text-sm">练习报告</span>
-          <div className="w-14" /> {/* 占位，标题居中 */}
+          <span className="font-extrabold text-ink">练习报告</span>
+          <div className="w-20" />
         </div>
       </nav>
 

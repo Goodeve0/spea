@@ -364,12 +364,71 @@ export function SlicesIcon({ size = 28, className = '' }: IconProps) {
   );
 }
 
+/** 瓜熟蒂落：熟瓜坠落 */
+export function RipeDropIcon({ size = 28, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
+      <ellipse cx="16" cy="19" rx="8" ry="7" fill={ORANGE} />
+      <path d="M9 16q7 5 14 0M9 19.5q7 5 14 0" stroke="#fff" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+      <path d="M16 12q1-2.5 3.5-2" stroke={GREEN} strokeWidth="2" strokeLinecap="round" />
+      <path d="M5 8l4 6M27 8l-4 6" stroke={TEAL} strokeWidth="2" strokeLinecap="round" />
+      <path d="M7 6l2 2M25 6l-2 2" stroke={TEAL} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** 夜半偷瓜：月亮+猫头鹰眼 */
+export function NightOwlIcon({ size = 28, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
+      <path d="M22 6a9 9 0 1 0 0 18 7 7 0 0 1 0-18Z" fill="#FBBF24" />
+      <circle cx="12" cy="16" r="6" fill="#1E293B" />
+      <circle cx="10" cy="15" r="2.2" fill="#FBBF24" />
+      <circle cx="14" cy="15" r="2.2" fill="#FBBF24" />
+      <circle cx="10" cy="15" r="1" fill="#1E293B" />
+      <circle cx="14" cy="15" r="1" fill="#1E293B" />
+      <path d="M11 18l1 1 1-1" stroke="#FBBF24" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M8 10q2-2 3.5 0M16 10q2-2 3.5 0" stroke="#1E293B" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** 速成瓜：闪电+瓜 */
+export function SpeedIcon({ size = 28, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
+      <ellipse cx="16" cy="20" rx="9" ry="8" fill={ORANGE} />
+      <path d="M8 17q8 5 16 0M8 20.5q8 5 16 0" stroke="#fff" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+      <path d="M16 12q1-2.5 4-2" stroke={GREEN} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M19 3l-4 8h5l-4 8" stroke="#FBBF24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** 瓜神降临：瓜戴皇冠 */
+export function CrownIcon({ size = 28, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
+      <ellipse cx="16" cy="22" rx="9" ry="7" fill={ORANGE} />
+      <path d="M8 19q8 5 16 0M8 22q8 5 16 0" stroke="#fff" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+      <path d="M7 16l3-7 3 4 3-7 3 7 3-4 3 7z" fill="#FBBF24" stroke="#D97706" strokeWidth="1.2" strokeLinejoin="round" />
+      <circle cx="10" cy="9" r="1.2" fill="#FF4B4B" />
+      <circle cx="16" cy="6" r="1.2" fill="#FF4B4B" />
+      <circle cx="22" cy="9" r="1.2" fill="#FF4B4B" />
+    </svg>
+  );
+}
+
 /** 成就 id → 自绘图标组件映射 */
 export const ACHIEVEMENT_ICONS: Record<string, React.FC<IconProps>> = {
   first_step: SproutIcon,
   streak_3: WaterDropIcon,
   streak_7: VineIcon,
+  streak_14: RipeDropIcon,
   ten_sessions: BasketIcon,
+  night_owl: NightOwlIcon,
+  speed_run: SpeedIcon,
   high_scorer: HoneyMelonIcon,
   all_rounder: SlicesIcon,
+  perfect_five: CrownIcon,
 };

@@ -4,8 +4,11 @@ import type { StoredSession } from '@speak-coach/shared';
 
 import Mascot from '../components/ui/Mascot';
 import GardenHeatmap from '../components/GardenHeatmap';
+import AvatarPicker from '../components/AvatarPicker';
+import { UserAvatar } from '../components/user-avatar';
 import { ProfileIcon, MelonIcon } from '../components/icons';
 import { useAuthStore } from '../store/auth';
+import { useSettingsStore } from '../store/settings';
 import { loadGrowth } from '../store/growth';
 import { levelInfo, levelStage } from '../lib/gamification';
 
@@ -13,8 +16,10 @@ export default function Profile() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const avatarKey = useSettingsStore((s) => s.avatarKey);
   const [xp, setXp] = useState(0);
   const [sessions, setSessions] = useState<StoredSession[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -41,17 +46,30 @@ export default function Profile() {
       {/* 账号 / 登录引导 */}
       {user ? (
         <section className="bg-white rounded-3xl border border-line shadow-card p-6 flex items-center gap-4 mb-6">
-          <span className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-extrabold flex-shrink-0">
-            {user.displayName.slice(0, 1).toUpperCase()}
-          </span>
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="relative flex-shrink-0 group"
+            title="点击换头像"
+          >
+            <UserAvatar avatarKey={avatarKey} size={64} />
+            <span className="absolute inset-0 rounded-full bg-ink/0 group-hover:bg-ink/20 transition-colors flex items-center justify-center">
+              <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            </span>
+          </button>
           <div className="min-w-0">
             <div className="text-lg font-extrabold text-ink truncate">{user.displayName}</div>
             <div className="text-sm text-sub truncate">{user.email}</div>
+            <button onClick={() => setPickerOpen(true)} className="text-xs text-primary font-bold mt-1 hover:underline">换头像</button>
           </div>
         </section>
       ) : (
         <section className="bg-white rounded-3xl border border-line shadow-card p-6 text-center mb-6">
-          <Mascot size={72} className="mx-auto mb-3" />
+          <button onClick={() => setPickerOpen(true)} className="mx-auto mb-3 block relative group" title="点击换头像">
+            <UserAvatar avatarKey={avatarKey} size={72} />
+            <span className="absolute inset-0 rounded-full bg-ink/0 group-hover:bg-ink/20 transition-colors flex items-center justify-center">
+              <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            </span>
+          </button>
           <p className="font-bold text-ink mb-1">登录后，瓜田永久保存</p>
           <p className="text-sm text-sub mb-4">换设备、换浏览器，你的瓜照样在田里等你</p>
           <button
@@ -62,6 +80,8 @@ export default function Profile() {
           </button>
         </section>
       )}
+
+      <AvatarPicker open={pickerOpen} onClose={() => setPickerOpen(false)} />
 
       {/* 瓜级卡 */}
       <section className="bg-white rounded-3xl border border-line shadow-card p-5 mb-6">

@@ -24,30 +24,38 @@ export function normalizePlaybackSpeed(value: unknown): PlaybackSpeed {
   return 1;
 }
 
+/** 允许的头像 key */
+export const AVATAR_KEYS = ['melon', 'sprout', 'flower', 'sun', 'moon', 'rainbow', 'leaf', 'star'] as const;
+export type AvatarKey = (typeof AVATAR_KEYS)[number];
+
 export interface SettingsState {
   ttsEngine: EngineId;
   iflytekVoice: string;
   iflytekDisabled: boolean;
   iflytekLastError: string | null;
   playbackSpeed: PlaybackSpeed;
+  avatarKey: AvatarKey;
 
   setTtsEngine: (engine: EngineId) => void;
   setIflytekVoice: (voice: string) => void;
   setIflytekDisabled: (disabled: boolean) => void;
   setIflytekLastError: (msg: string | null) => void;
   setPlaybackSpeed: (speed: number) => void;
+  setAvatarKey: (key: AvatarKey) => void;
 }
 
 interface PersistedSettings {
   ttsEngine: EngineId;
   iflytekVoice: string;
   playbackSpeed: PlaybackSpeed;
+  avatarKey: AvatarKey;
 }
 
 const defaults: PersistedSettings = {
   ttsEngine: 'browser',
   iflytekVoice: DEFAULT_IFLYTEK_VOICE,
   playbackSpeed: 1,
+  avatarKey: 'melon',
 };
 
 function loadFromStorage(): PersistedSettings {
@@ -65,10 +73,12 @@ function loadFromStorage(): PersistedSettings {
       voice = defaults.iflytekVoice;
     }
 
+    const avatarKeys = new Set<string>(AVATAR_KEYS);
     return {
       ttsEngine: parsed.ttsEngine === 'iflytek' || parsed.ttsEngine === 'browser' ? parsed.ttsEngine : defaults.ttsEngine,
       iflytekVoice: voice,
       playbackSpeed: normalizePlaybackSpeed(parsed.playbackSpeed),
+      avatarKey: avatarKeys.has(parsed.avatarKey as string) ? (parsed.avatarKey as AvatarKey) : defaults.avatarKey,
     };
   } catch (error) {
     console.error('[settings.loadFromStorage] failed:', error);
@@ -90,6 +100,7 @@ function pickPersisted(state: SettingsState): PersistedSettings {
     ttsEngine: state.ttsEngine,
     iflytekVoice: state.iflytekVoice,
     playbackSpeed: state.playbackSpeed,
+    avatarKey: state.avatarKey,
   };
 }
 
@@ -101,6 +112,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   iflytekDisabled: false,
   iflytekLastError: null,
   playbackSpeed: initial.playbackSpeed,
+  avatarKey: initial.avatarKey,
 
   setTtsEngine: (engine) => {
     set({ ttsEngine: engine });
@@ -123,6 +135,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setPlaybackSpeed: (speed) => {
     const normalized = normalizePlaybackSpeed(speed);
     set({ playbackSpeed: normalized });
+    persistToStorage(pickPersisted(get()));
+  },
+
+  setAvatarKey: (key) => {
+    set({ avatarKey: key });
     persistToStorage(pickPersisted(get()));
   },
 }));

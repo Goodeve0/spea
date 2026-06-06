@@ -79,6 +79,30 @@ describe('evaluateAchievements', () => {
     const sessions = [mk('a', 70, 'interview'), mk('b', 70, 'restaurant'), mk('c', 70, 'meeting')];
     expect(evaluateAchievements(sessions, 1).find((a) => a.id === 'all_rounder')?.unlocked).toBe(true);
   });
+  it('连击 14 解锁 streak_14', () => {
+    expect(evaluateAchievements([mk('s1', 70)], 14).find((a) => a.id === 'streak_14')?.unlocked).toBe(true);
+    expect(evaluateAchievements([mk('s1', 70)], 7).find((a) => a.id === 'streak_14')?.unlocked).toBe(false);
+  });
+
+  it('夜间练习解锁 night_owl', () => {
+    const nightTs = new Date(); nightTs.setHours(23, 0, 0, 0);
+    expect(evaluateAchievements([mk('s1', 70, 'interview', nightTs.getTime())], 1).find((a) => a.id === 'night_owl')?.unlocked).toBe(true);
+    const dayTs = new Date(); dayTs.setHours(10, 0, 0, 0);
+    expect(evaluateAchievements([mk('s1', 70, 'interview', dayTs.getTime())], 1).find((a) => a.id === 'night_owl')?.unlocked).toBe(false);
+  });
+
+  it('同天 3 次解锁 speed_run', () => {
+    const today = new Date(); today.setHours(10, 0, 0, 0);
+    const ts = today.getTime();
+    const sessions = [mk('a', 70, 'interview', ts), mk('b', 70, 'restaurant', ts + 1000), mk('c', 70, 'meeting', ts + 2000)];
+    expect(evaluateAchievements(sessions, 1).find((a) => a.id === 'speed_run')?.unlocked).toBe(true);
+    expect(evaluateAchievements([mk('a', 70), mk('b', 70, 'restaurant', Date.now() - DAY)], 1).find((a) => a.id === 'speed_run')?.unlocked).toBe(false);
+  });
+
+  it('5 维全 80+ 解锁 perfect_five', () => {
+    expect(evaluateAchievements([mk('s1', 85)], 1).find((a) => a.id === 'perfect_five')?.unlocked).toBe(true);
+    expect(evaluateAchievements([mk('s1', 79)], 1).find((a) => a.id === 'perfect_five')?.unlocked).toBe(false);
+  });
 });
 
 describe('todayDone', () => {
