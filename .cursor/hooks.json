@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/format-after-edit.sh"
+      }
+    ],
+    "stop": [
+      {
+        "type": "prompt",
+        "prompt": "Before allowing the session to stop, verify whether any new file was created in this session. For every new code/test file, confirm the agent explicitly compared it against at least 1-2 neighboring files in the same directory and aligned the local style, including indentation, quote style, import grouping/order, blank lines, export style, and test style. Local neighboring-file style overrides generic model defaults. If this comparison was not done or the new file still appears to follow generic default formatting, return a followup_message instructing the agent to read neighboring files and fix the formatting first. Otherwise return empty JSON {}.",
+        "loop_limit": 2
+      }
+    ]
+  }
+}
