@@ -18,9 +18,6 @@ import { generateHints, type Hints } from '../llm/hint-generator';
 
 initTtsEngines();
 
-// 递台阶提示气泡暂时关闭（逻辑保留，后续再决定何时出现更合适）。设为 true 即可恢复。
-const HINT_ENABLED = false;
-
 const SCENARIO_EMOJI: Record<string, string> = {
   interview: '💼', meeting: '📋', presentation: '🎤', restaurant: '🍽️',
   doctor: '🩺', shopping: '🛍️', hotel: '🏨', smalltalk: '💬', ielts: '🎓', custom: '✨',
@@ -53,6 +50,7 @@ export default function Conversation() {
 
   const setIflytekDisabled = useSettingsStore((s) => s.setIflytekDisabled);
   const setIflytekLastError = useSettingsStore((s) => s.setIflytekLastError);
+  const hintEnabled = useSettingsStore((s) => s.hintEnabled);
 
   const isRecording = useSessionStore((s) => s.isRecording);
   const turns = useSessionStore((s) => s.turns);
@@ -278,7 +276,7 @@ export default function Conversation() {
     !!lastTurn && lastTurn.role === 'ai' &&
     !isRecording && !isLoading && !isAiSpeaking &&
     textInput.trim() === '' && !hints && !hintLoading;
-  useStallDetector({ active: HINT_ENABLED && idleForHint, resetKey: turns.length, onStall: handleStall });
+  useStallDetector({ active: hintEnabled && idleForHint, resetKey: turns.length, onStall: handleStall });
 
   const micDisabled = isLoading;
   const sendDisabled = isLoading;
