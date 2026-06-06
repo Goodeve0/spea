@@ -9,5 +9,6 @@
       "@speak-coach/shared": ["../shared/contracts"]
     }
   },
+  "references": [{ "path": "../shared" }],
   "include": ["src/**/*.ts"]
 }
