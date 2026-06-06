@@ -34,11 +34,22 @@ export default {
           '60%': { transform: 'scale(1.08)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        'melon-burst': {
+          '0%': { opacity: '0', transform: 'scale(0) rotate(-20deg)' },
+          '60%': { opacity: '1', transform: 'scale(1.15) rotate(8deg)' },
+          '100%': { opacity: '1', transform: 'scale(1) rotate(0deg)' },
+        },
+        'confetti-fall': {
+          '0%': { opacity: '1', transform: 'translateY(-12vh) rotate(0deg)' },
+          '100%': { opacity: '0', transform: 'translateY(110vh) rotate(360deg)' },
+        },
       },
       animation: {
         'pop-in': 'pop-in 0.4s ease-out both',
         float: 'float 3s ease-in-out infinite',
         celebrate: 'celebrate 0.6s ease-out both',
+        'melon-burst': 'melon-burst 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        'confetti-fall': 'confetti-fall 2.6s linear forwards',
       },
     },
   },

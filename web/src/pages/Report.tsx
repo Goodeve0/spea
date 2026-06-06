@@ -5,8 +5,10 @@ import type { RadarScores, Difficulty, StoredSession } from '@speak-coach/shared
 
 import { useSessionStore } from '../store/session';
 import { recordSession, loadGrowth } from '../store/growth';
+import { levelInfo } from '../lib/gamification';
 import Mascot from '../components/ui/Mascot';
 import RewardBanner from '../components/RewardBanner';
+import LevelUpCelebration from '../components/LevelUpCelebration';
 
 const GrowthCurve = lazy(() => import('../components/GrowthCurve'));
 
@@ -42,8 +44,10 @@ export default function Report() {
   const navigate = useNavigate();
   const report = useSessionStore((s) => s.report);
   const savedRef = useRef(false);
+  const celebratedRef = useRef(false);
   const [growthSessions, setGrowthSessions] = useState<StoredSession[]>([]);
   const [growthMeta, setGrowthMeta] = useState<{ streak: number; totalXp: number } | null>(null);
+  const [celebrateLevel, setCelebrateLevel] = useState<number | null>(null);
 
   const hasSpeech = !!report && (report.hasUserSpeech ?? report.annotatedTurns.some((t) => t.role === 'user'));
   const overallScore = report ? avg(Object.values(report.radar)) : 0;
@@ -72,6 +76,15 @@ export default function Report() {
       if (alive) {
         setGrowthSessions(g.sessions);
         setGrowthMeta({ streak: g.streak, totalXp: g.totalXp });
+        // 升级检测：本次得分使累计跨过等级线则庆祝（每个报告只弹一次）
+        if (!celebratedRef.current) {
+          const after = levelInfo(g.totalXp).level;
+          const before = levelInfo(Math.max(0, g.totalXp - overallScore)).level;
+          if (after > before) {
+            celebratedRef.current = true;
+            setCelebrateLevel(after);
+          }
+        }
       }
     })();
     return () => { alive = false; };
@@ -123,6 +136,9 @@ export default function Report() {
 
   return (
     <div className="min-h-screen bg-canvas">
+      {celebrateLevel !== null && (
+        <LevelUpCelebration level={celebrateLevel} onClose={() => setCelebrateLevel(null)} />
+      )}
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-8 animate-pop-in">
