@@ -7,6 +7,7 @@ import Profile from './pages/Profile';
 import Conversation from './pages/Conversation';
 import Report from './pages/Report';
 import Login from './pages/Login';
+import DevPreview from './pages/DevPreview';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/conversation" element={<Conversation />} />
         <Route path="/report" element={<Report />} />
+        <Route path="/preview" element={<DevPreview />} />
       </Routes>
     </BrowserRouter>
   );
