@@ -17,8 +17,69 @@ model User {
   displayName  String
   createdAt    DateTime  @default(now())
 
+  // 可公开 profile（供瓜友匹配与卡片展示）
+  avatarKey       String? // 与前端 settings.avatarKey 同步，默认 'melon'
+  nativeLang      String? // 母语，可选匹配维度，如 'zh'
+  practiceSlot    String? // 练习时段：'morning'|'noon'|'evening'|'night'|'any'
+  targetScenarios String? // JSON 文本：目标场景 id 数组
+  isSeed          Boolean @default(false) // 种子瓜友标记
+
   sessions Session[]
   reports  Report[]
+
+  // 瓜友关系反向引用
+  buddyLinksA  Buddy[]         @relation("BuddyA")
+  buddyLinksB  Buddy[]         @relation("BuddyB")
+  sentRequests BuddyRequest[]  @relation("ReqFrom")
+  recvRequests BuddyRequest[]  @relation("ReqTo")
+  sentEnc      Encouragement[] @relation("EncFrom")
+  recvEnc      Encouragement[] @relation("EncTo")
+}
+
+// 瓜友关系（单行规范化：始终 userAId < userBId，保证一对一行）
+model Buddy {
+  id             String   @id @default(cuid())
+  userAId        String
+  userBId        String
+  createdAt      DateTime @default(now())
+  lastInteractAt DateTime @default(now()) // 练习/收发贴纸/同房时更新；冷却派生依据
+
+  userA User @relation("BuddyA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("BuddyB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+// 瓜友邀请
+model BuddyRequest {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  status     String   @default("pending") // 'pending'|'accepted'|'declined'
+  createdAt  DateTime @default(now())
+
+  from User @relation("ReqFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to   User @relation("ReqTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId, status])
+}
+
+// 预置贴纸鼓励记录
+model Encouragement {
+  id         String    @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  stickerKey String // StickerKey 枚举值
+  createdAt  DateTime  @default(now())
+  readAt     DateTime?
+
+  from User @relation("EncFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to   User @relation("EncTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([toUserId, readAt])
 }
 
 model Session {

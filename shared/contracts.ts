@@ -152,7 +152,13 @@ export type ClientMessageType =
   | 'audio.chunk'
   | 'audio.end'
   | 'session.end'
-  | 'tts.request';
+  | 'tts.request'
+  // 瓜友实时练习房间（双排协作）
+  | 'room.create'
+  | 'room.join'
+  | 'room.utterance'
+  | 'room.leave'
+  | 'room.end';
 
 // 服务端 → 客户端 消息类型
 export type ServerMessageType =
@@ -166,7 +172,19 @@ export type ServerMessageType =
   | 'tts.audio'
   | 'tts.done'
   | 'tts.error'
-  | 'error';
+  | 'error'
+  // 瓜友实时练习房间
+  | 'room.created'
+  | 'room.joined'
+  | 'room.peer.joined'
+  | 'room.ready'
+  | 'room.turn'
+  | 'room.peer.utterance'
+  | 'room.ai.text'
+  | 'room.ai.done'
+  | 'room.peer.left'
+  | 'room.ended'
+  | 'room.error';
 
 // 各消息的 payload 类型
 export namespace ClientPayload {
@@ -185,6 +203,21 @@ export namespace ClientPayload {
     text: string;
     voice?: string;
   }
+  // 瓜友房间
+  export interface RoomCreate {
+    token: string;
+    scenarioId: string;
+    difficulty: Difficulty;
+  }
+  export interface RoomJoin {
+    token: string;
+    roomId: string;
+  }
+  export interface RoomUtterance {
+    text: string;
+  }
+  export type RoomLeave = Record<string, never>;
+  export type RoomEnd = Record<string, never>;
 }
 
 export namespace ServerPayload {
@@ -230,6 +263,47 @@ export namespace ServerPayload {
     code: ErrorCode;
     message: string;
   }
+  // 瓜友房间
+  export interface RoomCreated {
+    roomId: string;
+  }
+  export interface RoomJoined {
+    roomId: string;
+    members: RoomMember[];
+  }
+  export interface RoomPeerJoined {
+    member: RoomMember;
+  }
+  export interface RoomReady {
+    greeting: string;
+    currentTurnUserId: string;
+  }
+  export interface RoomTurn {
+    currentTurnUserId: string;
+  }
+  export interface RoomPeerUtterance {
+    userId: string;
+    text: string;
+  }
+  export interface RoomAiText {
+    deltaText: string;
+  }
+  export type RoomAiDone = Record<string, never>;
+  export interface RoomPeerLeft {
+    userId: string;
+  }
+  export type RoomEnded = Record<string, never>;
+  export interface RoomError {
+    code: string;
+    message: string;
+  }
+}
+
+/** 房间成员（公开信息） */
+export interface RoomMember {
+  userId: string;
+  displayName: string;
+  avatarKey: string;
 }
 
 // -------------------- 错误码 --------------------
@@ -397,6 +471,133 @@ export interface StoredSession {
   report?: Report;
 }
 
+// -------------------- 瓜友（Melon Buddy） --------------------
+
+/** 练习时段偏好 */
+export type PracticeSlot = 'morning' | 'noon' | 'evening' | 'night' | 'any';
+
+/** 可公开 profile 更新（供匹配与卡片展示） */
+export interface PublicProfileUpdate {
+  avatarKey?: string;
+  nativeLang?: string;
+  practiceSlot?: PracticeSlot;
+  targetScenarios?: string[];
+}
+
+/** 瓜友卡片：只露学习数据，无 email / 真人照片 */
+export interface BuddyCard {
+  userId: string;
+  displayName: string;
+  avatarKey: string;
+  /** 最近一次会话的 CEFR 估算；无则 undefined（前端显示「评估中」） */
+  cefr?: string;
+  /** 本周（本地周一 0 点起）练习次数 */
+  weeklyPracticeCount: number;
+  /** 擅长场景 id（近 30 天 Top 2） */
+  topScenarios: string[];
+  /** 最近一次雷达分数 */
+  recentRadar?: RadarScores;
+  /** 种子瓜友：约练习对其置灰 */
+  isSeed?: boolean;
+}
+
+/** 瓜友关系（含派生冷却状态与瓜友连胜） */
+export interface BuddyRelation {
+  /** Buddy 行 id */
+  buddyId: string;
+  /** 对方卡片 */
+  card: BuddyCard;
+  /** active | cooling（派生：lastInteractAt 超过冷却阈值） */
+  status: 'active' | 'cooling';
+  /** 瓜友连胜天数（双方练习自然日交集，连续计数） */
+  mutualStreak: number;
+  /** 最近互动时间 epoch ms */
+  lastInteractAt: number;
+}
+
+/** 收到的瓜友邀请 */
+export interface BuddyRequestDTO {
+  requestId: string;
+  from: BuddyCard;
+  createdAt: number;
+}
+
+/** 鼓励贴纸枚举（闭合集合，无自由 UGC） */
+export type StickerKey =
+  | 'nice_job'
+  | 'keep_going'
+  | 'one_more_melon'
+  | 'well_done'
+  | 'impressive'
+  | 'proud_of_you';
+
+/** 贴纸元信息 */
+export interface StickerMeta {
+  key: StickerKey;
+  /** 中文标签 */
+  label: string;
+  /** 英文短句（点击经 TTS 朗读） */
+  phrase: string;
+  /** 前端图标 key */
+  iconKey: string;
+}
+
+/** 预置贴纸集合 */
+export const STICKERS: StickerMeta[] = [
+  { key: 'nice_job', label: '干得漂亮', phrase: 'Nice job!', iconKey: 'star' },
+  { key: 'keep_going', label: '继续加油', phrase: 'Keep going!', iconKey: 'bolt' },
+  { key: 'one_more_melon', label: '再来一颗瓜', phrase: 'One more melon!', iconKey: 'melon' },
+  { key: 'well_done', label: '太棒了', phrase: 'Well done!', iconKey: 'party' },
+  { key: 'impressive', label: '厉害了', phrase: 'Impressive!', iconKey: 'sparkle' },
+  { key: 'proud_of_you', label: '为你骄傲', phrase: 'Proud of you!', iconKey: 'crown' },
+];
+
+/** 合法的贴纸 key 集合（用于校验） */
+export const STICKER_KEYS: StickerKey[] = STICKERS.map((s) => s.key);
+
+/** 收到的鼓励贴纸 */
+export interface EncouragementDTO {
+  id: string;
+  from: BuddyCard;
+  stickerKey: StickerKey;
+  createdAt: number;
+  read: boolean;
+}
+
+/** 排行条目（仅瓜友圈） */
+export interface RankingEntry {
+  userId: string;
+  displayName: string;
+  avatarKey: string;
+  weeklyPracticeCount: number;
+  isSelf: boolean;
+}
+
+/** 房间邀请（轮询送达） */
+export interface RoomInviteDTO {
+  roomId: string;
+  from: BuddyCard;
+  createdAt: number;
+}
+
+/** 冷却阈值（天）：超过则关系标记 cooling */
+export const BUDDY_COOL_DAYS = 7;
+
+/** CEFR 等级映射为数字（A1..C2 → 1..6）；无/非法返回 null */
+export function cefrToLevel(cefr?: string): number | null {
+  if (!cefr) return null;
+  const map: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+  return map[cefr.toUpperCase().slice(0, 2)] ?? null;
+}
+
+/** 两个 CEFR 是否在 ±1 级以内；任一缺省视为可匹配 */
+export function cefrWithinOneLevel(a?: string, b?: string): boolean {
+  const la = cefrToLevel(a);
+  const lb = cefrToLevel(b);
+  if (la === null || lb === null) return true;
+  return Math.abs(la - lb) <= 1;
+}
+
 /** HTTP API 请求/响应契约 */
 export namespace Api {
   export interface RegisterReq {
@@ -419,5 +620,37 @@ export namespace Api {
     streak: number;
     totalXp: number;
     sessions: StoredSession[];
+  }
+
+  // -------- 瓜友 --------
+  export type UpdateProfileReq = PublicProfileUpdate;
+  export interface MatchesResp {
+    candidates: BuddyCard[];
+  }
+  export interface SendRequestReq {
+    toUserId: string;
+  }
+  export interface RequestsResp {
+    requests: BuddyRequestDTO[];
+  }
+  export interface BuddyListResp {
+    buddies: BuddyRelation[];
+  }
+  export interface SendEncouragementReq {
+    toUserId: string;
+    stickerKey: StickerKey;
+  }
+  export interface EncouragementsResp {
+    encouragements: EncouragementDTO[];
+  }
+  export interface RankingResp {
+    ranking: RankingEntry[];
+  }
+  export interface RoomInviteReq {
+    toUserId: string;
+    roomId: string;
+  }
+  export interface RoomInviteResp {
+    invites: RoomInviteDTO[];
   }
 }
