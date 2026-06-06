@@ -61,8 +61,12 @@ export function useVoiceInput({
   const finishingRef = useRef(false);
 
   // 初始化 recognition 实例（单例，组件生命周期内复用）
-  useEffect(() => {
+  // 注意：必须在 useEffect 外同步初始化，否则首次 render 时 ref 为 null，
+  // 导致 isSupported 误判为 false 并错误触发"不支持语音"toast。
+  if (!recognitionRef.current) {
     recognitionRef.current = new BrowserSpeechRecognition();
+  }
+  useEffect(() => {
     return () => {
       cleanupMedia();
       recognitionRef.current?.stop();
@@ -113,8 +117,6 @@ export function useVoiceInput({
       onTranscript(text);
     }
   }, [cleanupMedia, onTranscript, setRecording]);
-
-  const isSupported = recognitionRef.current?.isSupported() ?? true;
 
   const startRecording = useCallback(async (): Promise<void> => {
     const recognition = recognitionRef.current;
