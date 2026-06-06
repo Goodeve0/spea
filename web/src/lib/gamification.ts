@@ -41,6 +41,20 @@ export function levelInfo(totalXp: number): LevelInfo {
   };
 }
 
+export interface LevelStage {
+  name: string;
+  emoji: string;
+}
+
+/** 瓜级阶段（按等级映射到哈密瓜成熟阶段）。 */
+export function levelStage(level: number): LevelStage {
+  if (level >= 15) return { name: '瓜王', emoji: '👑' };
+  if (level >= 10) return { name: '金瓜', emoji: '🏅' };
+  if (level >= 6) return { name: '蜜瓜', emoji: '🍈' };
+  if (level >= 3) return { name: '青瓜', emoji: '🥒' };
+  return { name: '瓜苗', emoji: '🌱' };
+}
+
 export interface Achievement {
   id: string;
   icon: string;
