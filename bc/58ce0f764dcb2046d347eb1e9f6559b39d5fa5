@@ -1,0 +1,25 @@
+openspec/changes/speech-silence-auto-stop/proposal.md
+  ai_agent 1-30
+web/src/audio/silence-detector.test.ts
+  ai_agent 1-91
+web/src/audio/silence-detector.ts
+  ai_agent 1-115
+openspec/changes/speech-silence-auto-stop/tasks.md
+  ai_agent 1-27
+web/src/audio/voice-input-constants.ts
+  ai_agent 1-5
+web/src/audio/recorder.ts
+  ai_agent 6-7,23,45-50,56-57
+openspec/changes/speech-silence-auto-stop/specs/voice-input-silence-stop/spec.md
+  ai_agent 1-105
+openspec/changes/speech-silence-auto-stop/.openspec.yaml
+  ai_agent 1-2
+openspec/changes/speech-silence-auto-stop/design.md
+  ai_agent 1-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "bc58ce0f764dcb2046d347eb1e9f6559b39d5fa5",
+  "prompts": {}
+}
