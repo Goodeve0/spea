@@ -4,6 +4,27 @@ import { IFLYTEK_VOICES } from '../audio/iflytek-voices';
 import type { EngineId } from '../audio/tts-engine';
 import { PLAYBACK_SPEED_OPTIONS, useSettingsStore } from '../store/settings';
 
+/** 简单的 iOS 风格开关按钮 */
+function Toggle({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) {
+  return (
+    <button
+      id={id}
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+        checked ? 'bg-indigo-600' : 'bg-gray-200'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+}
+
 interface SettingsPanelProps {
   open: boolean;
   onClose: () => void;
@@ -15,9 +36,11 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const iflytekDisabled = useSettingsStore((s) => s.iflytekDisabled);
   const iflytekLastError = useSettingsStore((s) => s.iflytekLastError);
   const playbackSpeed = useSettingsStore((s) => s.playbackSpeed);
+  const hintEnabled = useSettingsStore((s) => s.hintEnabled);
   const setTtsEngine = useSettingsStore((s) => s.setTtsEngine);
   const setIflytekVoice = useSettingsStore((s) => s.setIflytekVoice);
   const setPlaybackSpeed = useSettingsStore((s) => s.setPlaybackSpeed);
+  const setHintEnabled = useSettingsStore((s) => s.setHintEnabled);
 
   useEffect(() => {
     if (!open) return;
@@ -56,6 +79,17 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         </div>
 
         <div className="px-5 py-4 space-y-5">
+          {/* 卡壳提示开关 */}
+          <section className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700">卡壳提示</h3>
+              <p className="text-xs text-gray-400 mt-0.5">不知道说啥时，AI 自动给出台阶话术（初学者友好）</p>
+            </div>
+            <Toggle id="hint-toggle" checked={hintEnabled} onChange={setHintEnabled} />
+          </section>
+
+          <div className="border-t border-gray-100" />
+
           <section>
             <h3 className="text-sm font-medium text-gray-700 mb-2">语音合成引擎</h3>
             <div className="space-y-2">

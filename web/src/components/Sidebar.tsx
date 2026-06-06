@@ -13,6 +13,7 @@ export default function Sidebar({ xp, streak }: { xp: number; streak: number }) 
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const avatarKey = useSettingsStore((s) => s.avatarKey);
+  const customAvatarUrl = useSettingsStore((s) => s.customAvatarUrl);
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-60 md:flex-shrink-0 md:sticky md:top-0 md:h-screen bg-white border-r border-line">
@@ -54,7 +55,7 @@ export default function Sidebar({ xp, streak }: { xp: number; streak: number }) 
             onClick={() => navigate('/profile')}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-canvas transition-colors"
           >
-            <UserAvatar avatarKey={avatarKey} size={36} />
+            <UserAvatar avatarKey={avatarKey} size={36} customAvatarUrl={customAvatarUrl} />
             <span className="text-ink font-bold truncate text-left">{user.displayName}</span>
           </button>
         ) : (

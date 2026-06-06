@@ -1,5 +1,6 @@
 /**
  * 用户头像组件：8 款哈密瓜风 SVG 头像，按 avatarKey 渲染。
+ * 若 customAvatarUrl 有值（登录用户上传），优先展示自定义图片。
  * 用于 Profile、Sidebar、BottomTabBar 等处统一展示。
  */
 import type { AvatarKey } from '../store/settings';
@@ -13,6 +14,8 @@ interface Props {
   avatarKey: AvatarKey;
   size?: number;
   className?: string;
+  /** 登录用户上传的自定义头像 URL（data URL / 普通 URL），有值时覆盖 avatarKey */
+  customAvatarUrl?: string | null;
 }
 
 function CircleBg({ size = 40, color, children }: { size?: number; color: string; children: React.ReactNode }) {
@@ -152,7 +155,22 @@ const RENDERERS: Record<AvatarKey, (props: { size?: number }) => JSX.Element> = 
   star: StarAvatar,
 };
 
-export function UserAvatar({ avatarKey, size = 40, className = '' }: Props) {
+export function UserAvatar({ avatarKey, size = 40, className = '', customAvatarUrl }: Props) {
+  if (customAvatarUrl) {
+    return (
+      <span
+        className={`inline-flex items-center justify-center overflow-hidden rounded-full ${className}`}
+        style={{ width: size, height: size }}
+      >
+        <img
+          src={customAvatarUrl}
+          alt="头像"
+          className="w-full h-full object-cover"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+      </span>
+    );
+  }
   const Render = RENDERERS[avatarKey] ?? MelonAvatar;
   return (
     <span className={`inline-flex items-center justify-center ${className}`}>

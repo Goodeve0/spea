@@ -35,6 +35,13 @@ export interface SettingsState {
   iflytekLastError: string | null;
   playbackSpeed: PlaybackSpeed;
   avatarKey: AvatarKey;
+  /** 是否开启对话中的卡壳提示气泡（初学者友好；默认关） */
+  hintEnabled: boolean;
+  /**
+   * 登录用户上传的自定义头像（data URL / base64）。
+   * 有值时优先于 avatarKey 显示；游客不允许设置（UI 层控制）。
+   */
+  customAvatarUrl: string | null;
 
   setTtsEngine: (engine: EngineId) => void;
   setIflytekVoice: (voice: string) => void;
@@ -42,6 +49,8 @@ export interface SettingsState {
   setIflytekLastError: (msg: string | null) => void;
   setPlaybackSpeed: (speed: number) => void;
   setAvatarKey: (key: AvatarKey) => void;
+  setHintEnabled: (enabled: boolean) => void;
+  setCustomAvatarUrl: (url: string | null) => void;
 }
 
 interface PersistedSettings {
@@ -49,6 +58,8 @@ interface PersistedSettings {
   iflytekVoice: string;
   playbackSpeed: PlaybackSpeed;
   avatarKey: AvatarKey;
+  hintEnabled: boolean;
+  customAvatarUrl: string | null;
 }
 
 const defaults: PersistedSettings = {
@@ -56,6 +67,8 @@ const defaults: PersistedSettings = {
   iflytekVoice: DEFAULT_IFLYTEK_VOICE,
   playbackSpeed: 1,
   avatarKey: 'melon',
+  hintEnabled: false,
+  customAvatarUrl: null,
 };
 
 function loadFromStorage(): PersistedSettings {
@@ -79,6 +92,8 @@ function loadFromStorage(): PersistedSettings {
       iflytekVoice: voice,
       playbackSpeed: normalizePlaybackSpeed(parsed.playbackSpeed),
       avatarKey: avatarKeys.has(parsed.avatarKey as string) ? (parsed.avatarKey as AvatarKey) : defaults.avatarKey,
+      hintEnabled: typeof parsed.hintEnabled === 'boolean' ? parsed.hintEnabled : defaults.hintEnabled,
+      customAvatarUrl: typeof parsed.customAvatarUrl === 'string' ? parsed.customAvatarUrl : null,
     };
   } catch (error) {
     console.error('[settings.loadFromStorage] failed:', error);
@@ -101,6 +116,8 @@ function pickPersisted(state: SettingsState): PersistedSettings {
     iflytekVoice: state.iflytekVoice,
     playbackSpeed: state.playbackSpeed,
     avatarKey: state.avatarKey,
+    hintEnabled: state.hintEnabled,
+    customAvatarUrl: state.customAvatarUrl,
   };
 }
 
@@ -113,6 +130,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   iflytekLastError: null,
   playbackSpeed: initial.playbackSpeed,
   avatarKey: initial.avatarKey,
+  hintEnabled: initial.hintEnabled,
+  customAvatarUrl: initial.customAvatarUrl,
 
   setTtsEngine: (engine) => {
     set({ ttsEngine: engine });
@@ -140,6 +159,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setAvatarKey: (key) => {
     set({ avatarKey: key });
+    persistToStorage(pickPersisted(get()));
+  },
+
+  setHintEnabled: (enabled) => {
+    set({ hintEnabled: enabled });
+    persistToStorage(pickPersisted(get()));
+  },
+
+  setCustomAvatarUrl: (url) => {
+    set({ customAvatarUrl: url });
     persistToStorage(pickPersisted(get()));
   },
 }));
