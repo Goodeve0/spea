@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 
 import Mascot from './ui/Mascot';
 import LevelBar from './ui/LevelBar';
+import { MelonIcon } from './icons';
 import Sidebar from './Sidebar';
 import BottomTabBar from './BottomTabBar';
 import { loadGrowth } from '../store/growth';
@@ -43,12 +44,12 @@ export default function AppShell() {
           <div className="px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2 font-extrabold text-ink">
               <Mascot size={34} />
-              <span className="text-lg">Speak Coach</span>
+              <span className="text-base">英语口语顶呱呱</span>
             </div>
             <div className="flex items-center gap-2 text-sm font-bold">
               <LevelBar totalXp={xp} compact />
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-accent-dark" title="连续练习天数">
-                🔥 {streak}
+                <MelonIcon size={16} /> {streak}
               </span>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 
 import Mascot from './ui/Mascot';
 import LevelBar from './ui/LevelBar';
+import { MelonIcon } from './icons';
 import { NAV_ITEMS } from './nav-items';
 import { useAuthStore } from '../store/auth';
 
@@ -13,9 +14,9 @@ export default function Sidebar({ xp, streak }: { xp: number; streak: number }) 
   return (
     <aside className="hidden md:flex md:flex-col md:w-60 md:flex-shrink-0 md:sticky md:top-0 md:h-screen bg-white border-r border-line">
       {/* Logo */}
-      <div className="px-5 h-16 flex items-center gap-2 font-extrabold text-ink border-b border-line">
+      <div className="px-4 h-16 flex items-center gap-2 font-extrabold text-ink border-b border-line">
         <Mascot size={40} />
-        <span className="text-xl">Speak Coach</span>
+        <span className="text-lg leading-none">英语口语<br />顶呱呱</span>
       </div>
 
       {/* 导航 */}
@@ -31,7 +32,7 @@ export default function Sidebar({ xp, streak }: { xp: number; streak: number }) 
               }`
             }
           >
-            <span className="text-xl">{item.icon}</span>
+            <item.Icon size={22} />
             <span>{item.label}</span>
           </NavLink>
         ))}
@@ -41,7 +42,9 @@ export default function Sidebar({ xp, streak }: { xp: number; streak: number }) 
       <div className="px-3 pb-4 space-y-3">
         <div className="px-4 py-3 rounded-2xl bg-canvas flex items-center justify-between text-sm font-bold">
           <LevelBar totalXp={xp} />
-          <span className="flex items-center gap-1 text-accent-dark" title="连续练习天数">🔥 {streak}</span>
+          <span className="flex items-center gap-1 text-accent-dark" title="连续练习天数">
+            <MelonIcon size={18} /> {streak}
+          </span>
         </div>
         {user ? (
           <button

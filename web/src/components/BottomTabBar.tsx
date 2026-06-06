@@ -20,7 +20,7 @@ export default function BottomTabBar() {
           >
             {({ isActive }) => (
               <>
-                <span className={`text-xl transition-transform ${isActive ? 'scale-110' : ''}`}>{item.icon}</span>
+                <item.Icon size={24} className={`transition-transform ${isActive ? 'scale-110' : ''}`} />
                 <span>{item.label}</span>
               </>
             )}
