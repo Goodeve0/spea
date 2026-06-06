@@ -4,3 +4,7 @@ dist/
 *.log
 .DS_Store
 coverage/
+
+# Prisma 本地 SQLite 数据库
+*.db
+*.db-journal
