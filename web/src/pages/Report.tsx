@@ -1,14 +1,21 @@
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSessionStore } from '../store/session';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
-import type { RadarScores } from '@speak-coach/shared';
+import type { RadarScores, Difficulty, StoredSession } from '@speak-coach/shared';
+
+import { useSessionStore } from '../store/session';
+import { recordSession, loadGrowth } from '../store/growth';
+import Mascot from '../components/ui/Mascot';
+import RewardBanner from '../components/RewardBanner';
+
+const GrowthCurve = lazy(() => import('../components/GrowthCurve'));
 
 const RADAR_LABELS: Record<keyof RadarScores, string> = {
-  pronunciation: 'Pronunciation',
-  fluency: 'Fluency',
-  grammar: 'Grammar',
-  vocabulary: 'Vocabulary',
-  taskCompletion: 'Task Completion',
+  pronunciation: '发音',
+  fluency: '流利度',
+  grammar: '语法',
+  vocabulary: '词汇',
+  taskCompletion: '任务完成',
 };
 
 const RADAR_ICONS: Record<keyof RadarScores, string> = {
@@ -20,95 +27,153 @@ const RADAR_ICONS: Record<keyof RadarScores, string> = {
 };
 
 function getScoreLevel(score: number): { label: string; color: string } {
-  if (score >= 90) return { label: 'Excellent', color: 'text-green-600' };
-  if (score >= 75) return { label: 'Good', color: 'text-blue-600' };
-  if (score >= 60) return { label: 'Fair', color: 'text-yellow-600' };
-  return { label: 'Needs Work', color: 'text-red-600' };
+  if (score >= 90) return { label: '优秀', color: 'text-success' };
+  if (score >= 75) return { label: '良好', color: 'text-primary-dark' };
+  if (score >= 60) return { label: '及格', color: 'text-accent-dark' };
+  return { label: '待加强', color: 'text-danger' };
 }
 
-function radarToChartData(radar: RadarScores) {
-  return Object.entries(radar).map(([key, value]) => ({
-    subject: RADAR_LABELS[key as keyof RadarScores],
-    value,
-    fullMark: 100,
-  }));
+function avg(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
 }
 
 export default function Report() {
   const navigate = useNavigate();
   const report = useSessionStore((s) => s.report);
+  const savedRef = useRef(false);
+  const [growthSessions, setGrowthSessions] = useState<StoredSession[]>([]);
+  const [growthMeta, setGrowthMeta] = useState<{ streak: number; totalXp: number } | null>(null);
 
+  const hasSpeech = !!report && (report.hasUserSpeech ?? report.annotatedTurns.some((t) => t.role === 'user'));
+  const overallScore = report ? avg(Object.values(report.radar)) : 0;
+
+  // 报告生成后：有发言则落库（登录→服务端，游客→本地），并拉取成长曲线数据
+  useEffect(() => {
+    if (!report) return;
+    let alive = true;
+    void (async () => {
+      if (hasSpeech && !savedRef.current) {
+        savedRef.current = true;
+        await recordSession(
+          {
+            id: `sess-${Date.now()}`,
+            timestamp: Date.now(),
+            scenarioId: localStorage.getItem('scenarioId') ?? 'unknown',
+            difficulty: (localStorage.getItem('difficulty') as Difficulty) ?? 'intermediate',
+            radar: report.radar,
+            overallScore,
+            cefrEstimate: report.cefrEstimate,
+          },
+          report,
+        );
+      }
+      const g = await loadGrowth();
+      if (alive) {
+        setGrowthSessions(g.sessions);
+        setGrowthMeta({ streak: g.streak, totalXp: g.totalXp });
+      }
+    })();
+    return () => { alive = false; };
+  }, [report, hasSpeech, overallScore]);
+
+  const goHome = () => {
+    useSessionStore.getState().reset();
+    navigate('/');
+  };
+
+  // 报告生成中
   if (!report) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-2xl mb-4 animate-pulse">
-            <span className="text-3xl">📊</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Generating Report...</h1>
-          <p className="text-gray-500 mb-6">Analyzing your conversation</p>
-          <button
-            onClick={() => navigate('/')}
-            className="px-6 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700"
-          >
-            Back to Home
+          <Mascot size={96} className="animate-float mx-auto" />
+          <h1 className="text-2xl font-extrabold text-ink mt-4 mb-1">报告生成中…</h1>
+          <p className="text-sub mb-6">正在分析你的对话</p>
+          <button onClick={() => navigate('/')} className="px-6 py-2.5 bg-primary text-white rounded-2xl font-bold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0">
+            返回首页
           </button>
         </div>
       </div>
     );
   }
 
-  const chartData = radarToChartData(report.radar);
-  const overallScore = Math.round(
-    Object.values(report.radar).reduce((a, b) => a + b, 0) / 5,
-  );
+  // 无发言：不展示任何分数，友好引导
+  if (!hasSpeech) {
+    return (
+      <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-card border border-line p-8 text-center animate-pop-in">
+          <Mascot size={96} className="mx-auto" />
+          <h1 className="text-2xl font-extrabold text-ink mt-4 mb-2">这次还没听到你说话</h1>
+          <p className="text-sub leading-relaxed mb-6">{report.summaryText}</p>
+          <button onClick={goHome} className="w-full py-3 bg-primary text-white rounded-2xl font-extrabold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all">
+            去开口练一次 →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const chartData = (Object.entries(report.radar) as [keyof RadarScores, number][]).map(([key, value]) => ({
+    subject: RADAR_LABELS[key],
+    value,
+    fullMark: 100,
+  }));
   const overallLevel = getScoreLevel(overallScore);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-canvas">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-2xl mb-3">
-            <span className="text-2xl">✅</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">Session Report</h1>
-          <p className="text-gray-500">Your English speaking performance summary</p>
+        <div className="flex flex-col items-center text-center mb-8 animate-pop-in">
+          <Mascot size={72} className="animate-float" />
+          <h1 className="text-3xl font-extrabold text-ink mt-3 mb-1">练习报告</h1>
+          <p className="text-sub">这是你这次的口语表现</p>
         </div>
 
-        {/* Overall Score */}
-        <div className="flex justify-center mb-8">
+        {/* 即时奖励反馈（升级时庆祝） */}
+        {growthMeta && (
+          <RewardBanner gainedXp={overallScore} totalXp={growthMeta.totalXp} streak={growthMeta.streak} />
+        )}
+
+        {/* 总分 + CEFR */}
+        <div className="flex justify-center mb-10">
           <div className="relative">
-            <div className="w-36 h-36 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+            <div className="w-40 h-40 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-pop">
               <div className="text-center">
-                <span className="text-4xl font-bold text-white">{overallScore}</span>
-                <span className="block text-xs text-indigo-200">/ 100</span>
+                <span className="text-5xl font-extrabold text-white">{overallScore}</span>
+                <span className="block text-xs text-white/70">/ 100</span>
               </div>
             </div>
-            <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-white rounded-full shadow text-sm font-semibold ${overallLevel.color}`}>
+            <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 px-4 py-1 bg-white rounded-full shadow-card text-sm font-extrabold ${overallLevel.color}`}>
               {overallLevel.label}
             </div>
+            {report.cefrEstimate && (
+              <div className="absolute -top-1 -right-2 px-2.5 py-1 bg-accent text-white rounded-full text-xs font-extrabold shadow-card" title="近似 CEFR 等级（估算）">
+                ≈ {report.cefrEstimate}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Score bars */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Score Breakdown</h2>
+        {/* 分项条 */}
+        <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line">
+          <h2 className="text-lg font-extrabold text-ink mb-4">能力分项</h2>
           <div className="space-y-4">
             {(Object.entries(report.radar) as [keyof RadarScores, number][]).map(([key, value]) => {
               const level = getScoreLevel(value);
               return (
                 <div key={key}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-700 flex items-center gap-2">
+                    <span className="text-sm text-ink font-medium flex items-center gap-2">
                       <span>{RADAR_ICONS[key]}</span>
                       {RADAR_LABELS[key]}
                     </span>
-                    <span className={`text-sm font-semibold ${level.color}`}>{value}</span>
+                    <span className={`text-sm font-extrabold ${level.color}`}>{value}</span>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2.5">
+                  <div className="w-full bg-canvas rounded-full h-2.5">
                     <div
-                      className="h-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-1000"
+                      className="h-2.5 rounded-full bg-gradient-to-r from-primary to-primary-dark transition-all duration-1000"
                       style={{ width: `${value}%` }}
                     />
                   </div>
@@ -119,46 +184,39 @@ export default function Report() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Radar Chart */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Skills Radar</h2>
+          {/* 雷达图 */}
+          <div className="bg-white rounded-3xl shadow-card p-6 border border-line">
+            <h2 className="text-lg font-extrabold text-ink mb-4">能力雷达</h2>
             <ResponsiveContainer width="100%" height={280}>
               <RadarChart data={chartData}>
-                <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis dataKey="subject" className="text-xs" tick={{ fill: '#6b7280' }} />
+                <PolarGrid stroke="#E5E7EB" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: '#6B7280', fontSize: 12 }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#9ca3af', fontSize: 10 }} />
-                <Radar
-                  name="Score"
-                  dataKey="value"
-                  stroke="#6366f1"
-                  fill="#6366f1"
-                  fillOpacity={0.2}
-                  strokeWidth={2}
-                />
+                <Radar name="Score" dataKey="value" stroke="#2EC4B6" fill="#2EC4B6" fillOpacity={0.25} strokeWidth={2} />
               </RadarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Top Errors & Expression Upgrades */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Corrections</h2>
+          {/* 纠错 + 表达升级（含"为什么"） */}
+          <div className="bg-white rounded-3xl shadow-card p-6 border border-line">
+            <h2 className="text-lg font-extrabold text-ink mb-4">纠错与升级</h2>
             {report.topErrors.length === 0 ? (
               <div className="text-center py-6">
                 <span className="text-3xl">🎉</span>
-                <p className="text-gray-500 mt-2">No errors found! Great job!</p>
+                <p className="text-sub mt-2">没有发现明显错误，做得很好！</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {report.topErrors.map((err, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 bg-red-50 rounded-xl">
-                    <span className="flex-shrink-0 w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xs font-bold">
+                  <div key={i} className="flex items-start gap-3 p-3 bg-danger/5 rounded-2xl">
+                    <span className="flex-shrink-0 w-6 h-6 bg-danger/15 text-danger rounded-full flex items-center justify-center text-xs font-extrabold">
                       {i + 1}
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-gray-900 capitalize">{err.errorType.replace('_', ' ')}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{err.count} occurrence{err.count > 1 ? 's' : ''}</p>
+                      <p className="text-sm font-bold text-ink capitalize">{err.errorType.replace('_', ' ')}</p>
+                      <p className="text-xs text-sub mt-0.5">{err.count} 次</p>
                       {err.example && (
-                        <p className="text-xs text-red-600 mt-1 font-mono bg-red-100 px-2 py-1 rounded">{err.example}</p>
+                        <p className="text-xs text-danger mt-1 font-mono bg-danger/10 px-2 py-1 rounded-lg">{err.example}</p>
                       )}
                     </div>
                   </div>
@@ -168,12 +226,13 @@ export default function Report() {
 
             {report.expressionUpgrades.length > 0 && (
               <div className="mt-5">
-                <h3 className="text-md font-semibold text-gray-900 mb-3">✨ Expression Upgrades</h3>
+                <h3 className="text-sm font-extrabold text-ink mb-3">✨ 更地道的说法</h3>
                 <div className="space-y-2">
-                  {report.expressionUpgrades.map((upgrade, i) => (
-                    <div key={i} className="bg-green-50 rounded-xl p-3">
-                      <p className="text-xs text-gray-400 line-through">{upgrade.from}</p>
-                      <p className="text-sm text-green-700 font-medium mt-0.5">{upgrade.to}</p>
+                  {report.expressionUpgrades.map((u, i) => (
+                    <div key={i} className="bg-success/10 rounded-2xl p-3">
+                      <p className="text-xs text-sub line-through">{u.from}</p>
+                      <p className="text-sm text-primary-dark font-bold mt-0.5">{u.to}</p>
+                      {u.why && <p className="text-xs text-sub mt-1">💡 {u.why}</p>}
                     </div>
                   ))}
                 </div>
@@ -182,51 +241,64 @@ export default function Report() {
           </div>
         </div>
 
-        {/* Summary */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">📝 Summary</h2>
-          <p className="text-gray-700 leading-relaxed">{report.summaryText}</p>
+        {/* 隐性重述回放 */}
+        <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line">
+          <h2 className="text-lg font-extrabold text-ink mb-4">🔁 帮你顺过的表达</h2>
+          {report.recasts.length === 0 ? (
+            <div className="text-center py-4 text-sub text-sm">本次没有需要顺的表达，很棒！</div>
+          ) : (
+            <div className="space-y-3">
+              {report.recasts.map((r, i) => (
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex-1 px-3 py-2 bg-canvas rounded-2xl text-sm text-sub">
+                    <span className="text-xs font-bold text-sub/70 mr-1">你说的</span>{r.original}
+                  </div>
+                  <span className="text-primary font-extrabold text-center">→</span>
+                  <div className="flex-1 px-3 py-2 bg-primary-light rounded-2xl text-sm text-primary-dark font-medium">
+                    <span className="text-xs font-bold text-primary/70 mr-1">更自然</span>{r.recast}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Annotated Conversation */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">💬 Conversation Review</h2>
+        {/* 总结 */}
+        <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line">
+          <h2 className="text-lg font-extrabold text-ink mb-3">📝 总结</h2>
+          <p className="text-ink/80 leading-relaxed">{report.summaryText}</p>
+        </div>
+
+        {/* 成长曲线 */}
+        <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line">
+          <h2 className="text-lg font-extrabold text-ink mb-4">📈 成长曲线</h2>
+          <Suspense fallback={<div className="text-center py-10 text-sub text-sm">加载中…</div>}>
+            <GrowthCurve sessions={growthSessions} />
+          </Suspense>
+        </div>
+
+        {/* 对话回顾 */}
+        <div className="bg-white rounded-3xl shadow-card p-6 mb-8 border border-line">
+          <h2 className="text-lg font-extrabold text-ink mb-4">💬 对话回顾</h2>
           <div className="space-y-3">
             {report.annotatedTurns.map((turn, i) => (
-              <div key={i} className={`p-3 rounded-xl ${turn.role === 'user' ? 'bg-indigo-50' : 'bg-gray-50'}`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-xs font-semibold ${turn.role === 'user' ? 'text-indigo-600' : 'text-gray-500'}`}>
-                    {turn.role === 'user' ? '👤 You' : '🤖 AI'}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-800 leading-relaxed">{turn.text}</p>
-                {turn.corrections.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {turn.corrections.map((c, j) => (
-                      <div key={j} className="text-xs bg-yellow-50 text-yellow-800 p-2 rounded-lg">
-                        <span className="line-through">{c.original}</span>
-                        {' → '}
-                        <span className="font-medium">{c.corrected}</span>
-                        <span className="text-yellow-600 ml-2">({c.explanation})</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div key={i} className={`p-3 rounded-2xl ${turn.role === 'user' ? 'bg-primary-light/60' : 'bg-canvas'}`}>
+                <span className={`text-xs font-extrabold ${turn.role === 'user' ? 'text-primary-dark' : 'text-sub'}`}>
+                  {turn.role === 'user' ? '👤 你' : '🤖 AI'}
+                </span>
+                <p className="text-sm text-ink/90 leading-relaxed mt-1">{turn.text}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Actions */}
+        {/* 操作 */}
         <div className="text-center pb-8">
           <button
-            onClick={() => {
-              useSessionStore.getState().reset();
-              navigate('/');
-            }}
-            className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md shadow-indigo-200"
+            onClick={goHome}
+            className="px-8 py-3 bg-primary text-white rounded-2xl font-extrabold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all shadow-pop"
           >
-            🔄 Practice Again
+            🔄 再练一次
           </button>
         </div>
       </div>

@@ -1,29 +1,40 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { PRESET_SCENARIOS } from '@speak-coach/shared';
+import { getActiveScenario } from '../lib/scenario';
 import type { Scenario, Difficulty } from '@speak-coach/shared';
 
 import { BrowserSpeechRecognition } from '../audio/speech-recognition';
 import { getCurrentEngine, getEngine } from '../audio/tts-engine';
 import { initTtsEngines } from '../audio/tts-init';
 import SettingsPanel from '../components/SettingsPanel';
+import { streamChat, type ChatMessage } from '../llm/client';
+import { generateReport } from '../llm/report-generator';
+import { stripMarkdown } from '../llm/strip-markdown';
 import { useSessionStore } from '../store/session';
 import { useSettingsStore } from '../store/settings';
-import { parseReportJson } from './report-json';
+import { useStallDetector } from '../hooks/useStallDetector';
+import { generateHints, type Hints } from '../llm/hint-generator';
 
 initTtsEngines();
+
+// 递台阶提示气泡暂时关闭（逻辑保留，后续再决定何时出现更合适）。设为 true 即可恢复。
+const HINT_ENABLED = false;
+
+const SCENARIO_EMOJI: Record<string, string> = {
+  interview: '💼', meeting: '📋', presentation: '🎤', restaurant: '🍽️',
+  doctor: '🩺', shopping: '🛍️', hotel: '🏨', smalltalk: '💬', ielts: '🎓', custom: '✨',
+};
 
 export default function Conversation() {
   const navigate = useNavigate();
   const {
-    sessionId, setSession, addTurn, setRecording,
+    setSession, addTurn, setRecording,
     isAiSpeaking, setAiSpeaking, currentAiText,
-    appendAiText, resetAiText, setReport, reset,
+    appendAiText, resetAiText, setReport,
   } = useSessionStore();
 
   const ttsEngineId = useSettingsStore((s) => s.ttsEngine);
-  const iflytekVoice = useSettingsStore((s) => s.iflytekVoice);
   const setIflytekDisabled = useSettingsStore((s) => s.setIflytekDisabled);
   const setIflytekLastError = useSettingsStore((s) => s.setIflytekLastError);
 
@@ -34,9 +45,22 @@ export default function Conversation() {
   const [textInput, setTextInput] = useState('');
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isEnding, setIsEnding] = useState(false);
+  const [hints, setHints] = useState<Hints | null>(null);
+  const [hintLoading, setHintLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const recogUnsubsRef = useRef<Array<() => void>>([]);
   const initializedRef = useRef(false);
+
+  /** 停止所有正在播放的 TTS（用于打断 AI） */
+  const stopSpeaking = useCallback(() => {
+    getEngine('browser')?.stop();
+    getEngine('iflytek')?.stop();
+    setAiSpeaking(false);
+  }, [setAiSpeaking]);
 
   const speakReply = useCallback((text: string, onEnd?: () => void) => {
     const settings = useSettingsStore.getState();
@@ -50,18 +74,13 @@ export default function Conversation() {
         console.error('[Conversation.speakReply] tts error, engineId:', engineId, err);
         if (engineId !== 'iflytek') return;
 
-        // 记录错误信息供 SettingsPanel 展示
         setIflytekLastError(err.message);
-
-        // 区分"引擎级失败（如鉴权/连接）"与"音色级失败（vcn 未授权）"
         const isVoiceIssue = /11119|vcn|voice|发音人/i.test(err.message);
         if (!isVoiceIssue) {
           setIflytekDisabled(true);
         }
-
-        // 用浏览器引擎朗读当前句，不打断对话
-        const fallback = getEngine('browser');
-        fallback?.speak(text, { onEnd });
+        // 用浏览器引擎兜底朗读当前句，不打断对话
+        getEngine('browser')?.speak(text, { onEnd });
       },
     });
   }, [setIflytekDisabled, setIflytekLastError]);
@@ -71,36 +90,42 @@ export default function Conversation() {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
-    recognitionRef.current = new BrowserSpeechRecognition();
+    const recognition = new BrowserSpeechRecognition();
+    recognitionRef.current = recognition;
+
+    // #2 浏览器不支持语音识别 → 自动切到文字模式并提示
+    if (!recognition.isSupported()) {
+      setSpeechSupported(false);
+      setInputMode('text');
+      setNotice('当前浏览器不支持语音识别，已自动切换到文字模式。如需语音，请使用 Chrome。');
+    }
 
     // 自动发开场白
-    if (turns.length === 0) {
-      const scenarioId = localStorage.getItem('scenarioId') ?? 'interview';
+    if (useSessionStore.getState().turns.length === 0) {
       const difficulty = (localStorage.getItem('difficulty') ?? 'intermediate') as Difficulty;
-      const scenario = PRESET_SCENARIOS.find((s) => s.id === scenarioId) ?? PRESET_SCENARIOS[0];
-      setSession('local-session', scenarioId, difficulty);
+      const scenario = getActiveScenario();
+      setSession('local-session', scenario.id, difficulty);
 
-      // 生成开场白
       generateGreeting(scenario).then((greeting) => {
         addTurn({ id: `greeting-${Date.now()}`, sessionId: 'local-session', role: 'ai', text: greeting, timestamp: Date.now() });
-        speakReply(greeting);
+        setAiSpeaking(true);
+        speakReply(greeting, () => setAiSpeaking(false));
       });
     }
 
     return () => {
+      recogUnsubsRef.current.forEach((fn) => fn());
+      recogUnsubsRef.current = [];
       recognitionRef.current?.stop();
-      const engine = getEngine('browser');
-      engine?.stop();
-      const iflytek = getEngine('iflytek');
-      iflytek?.stop();
+      getEngine('browser')?.stop();
+      getEngine('iflytek')?.stop();
     };
   }, []);
 
   // 切换引擎时停掉旧引擎
   useEffect(() => {
     return () => {
-      const engine = getEngine(ttsEngineId);
-      engine?.stop();
+      getEngine(ttsEngineId)?.stop();
     };
   }, [ttsEngineId]);
 
@@ -116,33 +141,47 @@ export default function Conversation() {
       restaurant: "Hi! Welcome to our restaurant! Here's our menu. Can I start you off with something to drink?",
       meeting: "Good morning everyone. Let's get started with our weekly sync. Could you give us an update on your project?",
     };
-    return greetings[scenario.id] ?? "Hello! Let's get started. Please tell me about yourself.";
+    return (
+      greetings[scenario.id] ??
+      (scenario.id === 'custom'
+        ? "Sure, let's chat! What's on your mind?"
+        : "Hi! Let's get started — whenever you're ready, go ahead.")
+    );
   };
 
   /** 开始录音 */
   const handleStartRecording = useCallback(() => {
     const recognition = recognitionRef.current;
     if (!recognition?.isSupported()) {
-      alert('Your browser does not support speech recognition. Please use Chrome.');
+      setSpeechSupported(false);
+      setInputMode('text');
+      setNotice('当前浏览器不支持语音识别，已自动切换到文字模式。如需语音，请使用 Chrome。');
       return;
     }
 
+    // #3 开始说话前打断 AI 正在播放的语音
+    stopSpeaking();
+
+    // 清理上一轮注册的回调，避免重复累加
+    recogUnsubsRef.current.forEach((fn) => fn());
+    recogUnsubsRef.current = [];
+
     setPartialText('');
+    setHints(null);
     setRecording(true);
 
-    recognition.onResult((result) => {
+    const offResult = recognition.onResult((result) => {
       if (result.isFinal) {
         setPartialText('');
         setRecording(false);
         recognition.stop();
-        // 发送用户文本到 LLM
         handleUserMessage(result.text);
       } else {
         setPartialText(result.text);
       }
     });
 
-    recognition.onError((error) => {
+    const offError = recognition.onError((error) => {
       console.error('Recognition error:', error);
       setRecording(false);
       if (error !== 'no-speech' && error !== 'aborted') {
@@ -150,290 +189,139 @@ export default function Conversation() {
       }
     });
 
+    recogUnsubsRef.current = [offResult, offError];
     recognition.start();
-  }, []);
+  }, [stopSpeaking, setRecording]);
 
   /** 停止录音 */
   const handleStopRecording = useCallback(() => {
     recognitionRef.current?.stop();
     setRecording(false);
-  }, []);
+  }, [setRecording]);
+
+  /** 构建发给 LLM 的消息（系统提示 + 最新历史 + 本轮输入） */
+  const buildMessages = (scenario: Scenario, userText: string): ChatMessage[] => {
+    const history = useSessionStore.getState().turns; // 读最新，避免闭包过期
+    return [
+      {
+        role: 'system',
+        content:
+          scenario.rolePrompt +
+          '\n\nConversation goal: ' + scenario.goal +
+          '\n\nIMPORTANT style rules — this is a SPOKEN conversation:' +
+          '\n- Stay fully in character at all times. Never break role to give writing tips, resume advice, or meta commentary.' +
+          '\n- Reply the way a real person would SPEAK: short and natural, usually 1-2 sentences.' +
+          '\n- Plain conversational text ONLY. Do NOT use markdown, bullet points, numbered lists, bold/asterisks, or headings.' +
+          '\n- Ask one simple follow-up question to keep the conversation going.',
+      },
+      ...history.map((t) => ({
+        role: (t.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: t.text,
+      })),
+      { role: 'user', content: userText },
+    ];
+  };
 
   /** 处理用户消息 */
   const handleUserMessage = async (text: string) => {
     if (!text.trim()) return;
 
-    // 添加用户消息
+    setHints(null);
+    // 打断 AI（用户主动发话）
+    stopSpeaking();
+
+    const scenario = getActiveScenario();
+
+    // 先用最新历史构建消息，再把用户消息入库（避免重复计入本轮）
+    const messages = buildMessages(scenario, text);
     addTurn({ id: `user-${Date.now()}`, sessionId: 'local-session', role: 'user', text, timestamp: Date.now() });
 
-    // 调用 LLM（流式）
     setIsLoading(true);
     setAiSpeaking(true);
     resetAiText();
 
     try {
-      const scenarioId = localStorage.getItem('scenarioId') ?? 'interview';
-      const scenario = PRESET_SCENARIOS.find((s) => s.id === scenarioId) ?? PRESET_SCENARIOS[0];
+      const reply = await streamChat(messages, (chunk) => appendAiText(chunk));
+      // 清理掉模型可能残留的 markdown 符号，用于显示与朗读
+      const finalReply = stripMarkdown(reply).trim() || "Sorry, I didn't catch that. Could you say it again?";
 
-      const reply = await callLlmStream(scenario, text, (chunk) => {
-        appendAiText(chunk);
-      });
-
-      // 添加 AI 消息
-      addTurn({ id: `ai-${Date.now()}`, sessionId: 'local-session', role: 'ai', text: reply, timestamp: Date.now() });
+      addTurn({ id: `ai-${Date.now()}`, sessionId: 'local-session', role: 'ai', text: finalReply, timestamp: Date.now() });
       resetAiText();
 
-      // 语音播放
-      speakReply(reply, () => {
-        setAiSpeaking(false);
-      });
+      speakReply(finalReply, () => setAiSpeaking(false));
     } catch (err) {
-      console.error('LLM call failed:', err);
-      addTurn({ id: `ai-${Date.now()}`, sessionId: 'local-session', role: 'ai', text: "I'm sorry, I didn't catch that. Could you try again?", timestamp: Date.now() });
+      // #5/#6 把真实错误暴露出来（控制台 + 顶部提示），不再静默双重失败
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error('[Conversation] LLM 调用失败:', detail);
+      setNotice(`AI 回复失败：${detail}`);
+      addTurn({
+        id: `ai-${Date.now()}`,
+        sessionId: 'local-session',
+        role: 'ai',
+        text: "I'm having trouble responding right now. Please try again in a moment.",
+        timestamp: Date.now(),
+      });
       resetAiText();
       setAiSpeaking(false);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
-  };
-
-  /** 调用 LLM API（SSE 流式，逐 token 显示） */
-  const callLlmStream = async (
-    scenario: Scenario,
-    userText: string,
-    onChunk: (text: string) => void,
-  ): Promise<string> => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    const baseUrl = import.meta.env.VITE_OPENAI_BASE_URL;
-    const model = import.meta.env.VITE_LLM_MODEL ?? 'deepseek-v3';
-
-    // 构建对话历史
-    const messages = [
-      {
-        role: 'system' as const,
-        content: scenario.rolePrompt + '\n\nConversation goal: ' + scenario.goal + '\nKeep responses concise (1-3 sentences). Stay in character.',
-      },
-      ...turns.map((t) => ({
-        role: (t.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: t.text,
-      })),
-      { role: 'user' as const, content: userText },
-    ];
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_tokens: 200,
-        temperature: 0.8,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      // 流式不可用时，降级为非流式
-      return callLlmNonStream(scenario, userText);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      return callLlmNonStream(scenario, userText);
-    }
-
-    const decoder = new TextDecoder();
-    let fullText = '';
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      // 解析 SSE 数据行
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? ''; // 保留最后一个可能不完整的行
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === 'data: [DONE]') continue;
-        if (!trimmed.startsWith('data: ')) continue;
-
-        try {
-          const json = JSON.parse(trimmed.slice(6));
-          const content = json.choices?.[0]?.delta?.content;
-          if (content) {
-            fullText += content;
-            onChunk(content);
-          }
-        } catch {
-          // 忽略解析错误，继续处理
-        }
-      }
-    }
-
-    return fullText || "I didn't understand that. Could you repeat?";
-  };
-
-  /** 非流式调用（降级方案） */
-  const callLlmNonStream = async (scenario: Scenario, userText: string): Promise<string> => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    const baseUrl = import.meta.env.VITE_OPENAI_BASE_URL;
-    const model = import.meta.env.VITE_LLM_MODEL ?? 'deepseek-v3';
-
-    const messages = [
-      {
-        role: 'system' as const,
-        content: scenario.rolePrompt + '\n\nConversation goal: ' + scenario.goal + '\nKeep responses concise (1-3 sentences). Stay in character.',
-      },
-      ...turns.map((t) => ({
-        role: (t.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: t.text,
-      })),
-      { role: 'user' as const, content: userText },
-    ];
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_tokens: 200,
-        temperature: 0.8,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`LLM API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content ?? "I didn't understand that. Could you repeat?";
   };
 
   /** 结束会话，生成报告 */
   const handleEndSession = async () => {
-    const userTurns = turns.filter((t) => t.role === 'user');
+    if (isEnding) return; // 防重复点击导致重复生成报告
+    setIsEnding(true);
 
-    // 尝试用 LLM 生成真实纠错报告
+    // 结束会话时立即停止正在播放的语音（生成报告不需要朗读）
+    stopSpeaking();
+    recognitionRef.current?.stop();
+    setRecording(false);
+
+    setNotice('正在生成报告…');
     try {
-      const report = await generateReport(userTurns);
-      setReport(report as any);
+      // #4 读取最新 turns，避免闭包过期
+      const latestTurns = useSessionStore.getState().turns;
+      const report = await generateReport(latestTurns, 'local-session');
+      setReport(report as never);
       navigate('/report');
     } catch (err) {
-      console.error('Report generation failed, using fallback:', err);
-      // 降级：简单随机报告
-      const report = {
-        sessionId: 'local-session',
-        radar: {
-          pronunciation: 70 + Math.floor(Math.random() * 15),
-          fluency: 65 + Math.floor(Math.random() * 20),
-          grammar: Math.max(40, 100 - userTurns.length * 5),
-          vocabulary: 60 + Math.floor(Math.random() * 20),
-          taskCompletion: 70 + Math.floor(Math.random() * 20),
-        },
-        topErrors: [
-          { errorType: 'word_choice', count: 2, example: '"very like" → "really like"' },
-          { errorType: 'grammar', count: 1, example: '"he go" → "he goes"' },
-        ],
-        expressionUpgrades: [
-          { from: 'I very like this job', to: "I'm really excited about this role" },
-        ],
-        summaryText: `本次练习共 ${userTurns.length} 轮对话。整体表现不错，继续加油！`,
-        annotatedTurns: turns.map((t) => ({ ...t, corrections: [] })),
-      };
-      setReport(report as any);
-      navigate('/report');
+      console.error('[Conversation] 生成报告失败:', err);
+      setNotice('生成报告失败，请重试。');
+      setIsEnding(false);
     }
   };
 
-  /** 用 LLM 生成真实纠错报告 */
-  const generateReport = async (userTurns: { text: string }[]) => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    const baseUrl = import.meta.env.VITE_OPENAI_BASE_URL;
-    const model = import.meta.env.VITE_LLM_MODEL ?? 'deepseek-v3';
+  /** 卡壳时生成"递台阶"提示（失败静默忽略） */
+  const handleStall = useCallback(async () => {
+    const latestTurns = useSessionStore.getState().turns;
+    const lastAi = [...latestTurns].reverse().find((t) => t.role === 'ai');
+    if (!lastAi) return;
+    const diff = (localStorage.getItem('difficulty') ?? 'intermediate') as Difficulty;
+    const scenario = getActiveScenario();
+    setHintLoading(true);
+    const result = await generateHints(scenario, lastAi.text, diff);
+    setHintLoading(false);
+    // 仅当用户此刻仍空闲（未开始录音）时才展示，避免打扰
+    if (result && !useSessionStore.getState().isRecording) setHints(result);
+  }, []);
 
-    const userMessages = userTurns.map((t, i) => `${i + 1}. "${t.text}"`).join('\n');
+  // 用户卡壳（默认 6s 静默）时主动递台阶；AI 朗读/思考/录音/已有提示时不计时
+  const lastTurn = turns[turns.length - 1];
+  const idleForHint =
+    !!lastTurn && lastTurn.role === 'ai' &&
+    !isRecording && !isLoading && !isAiSpeaking &&
+    textInput.trim() === '' && !hints && !hintLoading;
+  useStallDetector({ active: HINT_ENABLED && idleForHint, resetKey: turns.length, onStall: handleStall });
 
-    const systemPrompt = `You are an English speaking coach. Analyze the student's conversation and generate a performance report.
-You MUST respond with ONLY a valid JSON object (no markdown, no code fences). Use this exact structure:
-{
-  "pronunciation": <number 0-100>,
-  "fluency": <number 0-100>,
-  "grammar": <number 0-100>,
-  "vocabulary": <number 0-100>,
-  "taskCompletion": <number 0-100>,
-  "topErrors": [{"errorType": "grammar|word_choice|tense|article|preposition", "count": <number>, "example": "<error> → <correction>"}],
-  "expressionUpgrades": [{"from": "<original>", "to": "<better alternative>"}],
-  "summaryText": "<2-3 sentence summary in Chinese>"
-}
+  const activeScenario = getActiveScenario();
+  const scenarioId = activeScenario.id;
+  const scenarioName = activeScenario.title;
 
-CRITICAL RULES:
-- All string values must be valid JSON strings. Inside string values, escape ALL double quotes as \\" — never write a bare " inside a string.
-- Prefer single quotes (') or no quotes when quoting fragments inside example/from/to. e.g.  "example": "he go → he goes"  not  "example": "\"he go\" → \"he goes\""
-- No trailing commas. No comments. Output only the JSON object.
-
-Be encouraging but honest. Scores should reflect real assessment. If the user made no errors, give high scores and empty arrays.`;
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Here are the student's messages during the conversation:\n${userMessages}` },
-        ],
-        max_tokens: 800,
-        temperature: 0.2,
-      }),
-    });
-
-    if (!response.ok) throw new Error(`Report API error: ${response.status}`);
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content ?? '';
-    const parsed = parseReportJson(content);
-
-    return {
-      sessionId: 'local-session',
-      radar: {
-        pronunciation: parsed.pronunciation ?? 70,
-        fluency: parsed.fluency ?? 70,
-        grammar: parsed.grammar ?? 70,
-        vocabulary: parsed.vocabulary ?? 70,
-        taskCompletion: parsed.taskCompletion ?? 70,
-      },
-      topErrors: (parsed.topErrors ?? []).map((e: any) => ({
-        errorType: e.errorType ?? 'grammar',
-        count: e.count ?? 1,
-        example: e.example ?? '',
-      })),
-      expressionUpgrades: (parsed.expressionUpgrades ?? []).map((e: any) => ({
-        from: e.from ?? '',
-        to: e.to ?? '',
-      })),
-      summaryText: parsed.summaryText ?? 'Great practice session!',
-      annotatedTurns: turns.map((t) => ({ ...t, corrections: [] })),
-    };
-  };
-
-  const scenarioId = localStorage.getItem('scenarioId') ?? 'interview';
-  const scenarioName = PRESET_SCENARIOS.find((s) => s.id === scenarioId)?.title ?? 'Practice';
-
-  const isBusy = isLoading || isAiSpeaking;
+  // isLoading：LLM 正在生成 token（此时不允许录音）；
+  // isAiSpeaking 但非 isLoading：TTS 播放中，允许点击麦克风打断。
+  const micDisabled = isLoading;
+  const sendDisabled = isLoading;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col">
@@ -442,7 +330,7 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
         <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-lg">
-              {scenarioId === 'interview' ? '💼' : scenarioId === 'restaurant' ? '🍽️' : '📋'}
+              {SCENARIO_EMOJI[scenarioId] ?? '🎯'}
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-900">{scenarioName}</h1>
@@ -460,12 +348,22 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
             </button>
             <button
               onClick={handleEndSession}
-              className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors border border-red-100"
+              disabled={isEnding}
+              className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors border border-red-100 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              End Session
+              {isEnding ? '生成报告中…' : 'End Session'}
             </button>
           </div>
         </div>
+
+        {/* Notice banner */}
+        {notice && (
+          <div className="mb-3 flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700">
+            <span>⚠️</span>
+            <span className="flex-1">{notice}</span>
+            <button onClick={() => setNotice(null)} className="text-amber-500 hover:text-amber-700">×</button>
+          </div>
+        )}
 
         {/* Chat area */}
         <div className="flex-1 overflow-y-auto space-y-3 mb-3 px-1 py-2">
@@ -519,8 +417,8 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
                 🤖
               </div>
               <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-100 rounded-bl-md">
-                <p className="text-sm leading-relaxed">
-                  {currentAiText}
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {stripMarkdown(currentAiText)}
                   <span className="animate-pulse text-indigo-400">|</span>
                 </p>
               </div>
@@ -542,15 +440,39 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
           <div ref={chatEndRef} />
         </div>
 
+        {/* 递台阶提示（非模态，不打断对话） */}
+        {hints && (
+          <div className="mb-2 animate-pop-in rounded-2xl border border-primary/40 bg-primary-light/70 p-3">
+            <div className="flex items-center gap-2 mb-2 text-xs font-bold text-primary-dark">
+              <span>💡 卡住了？试试这样说</span>
+              {hints.opener && <span className="font-normal text-sub">「{hints.opener}…」</span>}
+              <button onClick={() => setHints(null)} className="ml-auto text-sub hover:text-ink" aria-label="关闭提示">×</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {hints.suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => { setHints(null); handleUserMessage(s); }}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-line text-sm text-ink hover:border-primary hover:bg-primary-light transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Input area */}
         <div className="bg-white/80 backdrop-blur-sm rounded-t-2xl border-t border-gray-200 pt-3 pb-3 px-2">
           {/* Mode toggle */}
           <div className="flex justify-center gap-2 mb-3">
             <button
               onClick={() => { setInputMode('voice'); handleStopRecording(); }}
+              disabled={!speechSupported}
+              title={speechSupported ? undefined : '当前浏览器不支持语音识别'}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 inputMode === 'voice' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
-              }`}
+              } ${!speechSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
               🎤 Voice
             </button>
@@ -568,12 +490,12 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
             /* Voice controls */
             <div className="flex flex-col items-center gap-2">
               <button
-                onClick={isBusy ? undefined : (isRecording ? handleStopRecording : handleStartRecording)}
-                disabled={isBusy && !isRecording}
+                onClick={isRecording ? handleStopRecording : handleStartRecording}
+                disabled={micDisabled}
                 className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-all shadow-lg ${
                   isRecording
                     ? 'bg-red-500 text-white scale-110 shadow-red-200 animate-pulse'
-                    : isBusy
+                    : micDisabled
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
                 }`}
@@ -581,7 +503,7 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
                 {isRecording ? '⏹' : '🎤'}
               </button>
               <span className="text-xs text-gray-400">
-                {isRecording ? 'Tap to stop' : isBusy ? 'Wait for AI...' : 'Tap to speak'}
+                {isRecording ? 'Tap to stop' : micDisabled ? 'Thinking...' : isAiSpeaking ? 'Tap to interrupt & speak' : 'Tap to speak'}
               </span>
             </div>
           ) : (
@@ -590,26 +512,26 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
               <input
                 type="text"
                 value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
+                onChange={(e) => { setTextInput(e.target.value); if (e.target.value) setHints(null); }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && textInput.trim() && !isBusy) {
+                  if (e.key === 'Enter' && !e.shiftKey && textInput.trim() && !sendDisabled) {
                     e.preventDefault();
                     handleUserMessage(textInput.trim());
                     setTextInput('');
                   }
                 }}
                 placeholder="Type your message in English..."
-                disabled={isBusy}
+                disabled={sendDisabled}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm disabled:opacity-50"
               />
               <button
                 onClick={() => {
-                  if (textInput.trim() && !isBusy) {
+                  if (textInput.trim() && !sendDisabled) {
                     handleUserMessage(textInput.trim());
                     setTextInput('');
                   }
                 }}
-                disabled={isBusy || !textInput.trim()}
+                disabled={sendDisabled || !textInput.trim()}
                 className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Send
@@ -621,8 +543,8 @@ Be encouraging but honest. Scores should reflect real assessment. If the user ma
         {/* Status */}
         <div className="text-center text-xs text-gray-400 pb-1 h-5 mt-1">
           {isRecording && '🔴 Listening...'}
-          {isAiSpeaking && !isRecording && '🔊 AI is speaking...'}
-          {isLoading && !isAiSpeaking && !isRecording && '💭 Thinking...'}
+          {isAiSpeaking && !isRecording && !isLoading && '🔊 AI is speaking...'}
+          {isLoading && !isRecording && '💭 Thinking...'}
         </div>
       </div>
 
