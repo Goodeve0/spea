@@ -65,7 +65,7 @@ export default function DevPreview() {
 
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-extrabold text-ink">🍈 设计预览（彩排页）</h1>
+          <h1 className="text-2xl font-extrabold text-ink flex items-center gap-2"><MelonIcon size={28} /> 设计预览（彩排页）</h1>
           <button
             onClick={() => navigate('/')}
             className="px-4 py-2 rounded-2xl bg-white border border-line font-bold text-sub hover:text-ink transition-colors"

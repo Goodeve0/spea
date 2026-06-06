@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { type FC, Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import type { RadarScores, Difficulty, StoredSession } from '@speak-coach/shared';
@@ -9,6 +9,20 @@ import { levelInfo } from '../lib/gamification';
 import Mascot from '../components/ui/Mascot';
 import RewardBanner from '../components/RewardBanner';
 import LevelUpCelebration from '../components/LevelUpCelebration';
+import {
+  RADAR_DIM_ICONS,
+  PartyIcon,
+  SparkleIcon,
+  LightbulbIcon,
+  NoteIcon,
+  GrowthIcon,
+  ChatIcon,
+  RecastIcon,
+  RefreshIcon,
+  PersonIcon,
+  RobotIcon,
+} from '../components/icons';
+import type { IconProps } from '../components/icons';
 
 const GrowthCurve = lazy(() => import('../components/GrowthCurve'));
 
@@ -20,12 +34,12 @@ const RADAR_LABELS: Record<keyof RadarScores, string> = {
   taskCompletion: '任务完成',
 };
 
-const RADAR_ICONS: Record<keyof RadarScores, string> = {
-  pronunciation: '🗣️',
-  fluency: '🌊',
-  grammar: '📝',
-  vocabulary: '📚',
-  taskCompletion: '🎯',
+const RADAR_ICON_COMPONENTS: Record<keyof RadarScores, FC<IconProps>> = {
+  pronunciation: RADAR_DIM_ICONS.pronunciation,
+  fluency: RADAR_DIM_ICONS.fluency,
+  grammar: RADAR_DIM_ICONS.grammar,
+  vocabulary: RADAR_DIM_ICONS.vocabulary,
+  taskCompletion: RADAR_DIM_ICONS.taskCompletion,
 };
 
 function getScoreLevel(score: number): { label: string; color: string } {
@@ -182,7 +196,7 @@ export default function Report() {
                 <div key={key}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-ink font-medium flex items-center gap-2">
-                      <span>{RADAR_ICONS[key]}</span>
+                      {(() => { const Ic = RADAR_ICON_COMPONENTS[key]; return Ic ? <Ic size={16} /> : null; })()}
                       {RADAR_LABELS[key]}
                     </span>
                     <span className={`text-sm font-extrabold ${level.color}`}>{value}</span>
@@ -218,7 +232,7 @@ export default function Report() {
             <h2 className="text-lg font-extrabold text-ink mb-4">纠错与升级</h2>
             {report.topErrors.length === 0 ? (
               <div className="text-center py-6">
-                <span className="text-3xl">🎉</span>
+                <PartyIcon size={32} className="mx-auto text-success" />
                 <p className="text-sub mt-2">没有发现明显错误，做得很好！</p>
               </div>
             ) : (
@@ -242,13 +256,13 @@ export default function Report() {
 
             {report.expressionUpgrades.length > 0 && (
               <div className="mt-5">
-                <h3 className="text-sm font-extrabold text-ink mb-3">✨ 更地道的说法</h3>
+                <h3 className="text-sm font-extrabold text-ink mb-3 flex items-center gap-1.5"><SparkleIcon size={16} className="text-accent" /> 更地道的说法</h3>
                 <div className="space-y-2">
                   {report.expressionUpgrades.map((u, i) => (
                     <div key={i} className="bg-success/10 rounded-2xl p-3">
                       <p className="text-xs text-sub line-through">{u.from}</p>
                       <p className="text-sm text-primary-dark font-bold mt-0.5">{u.to}</p>
-                      {u.why && <p className="text-xs text-sub mt-1">💡 {u.why}</p>}
+                      {u.why && <p className="text-xs text-sub mt-1 flex items-start gap-1"><LightbulbIcon size={14} className="text-accent flex-shrink-0 mt-0.5" /> {u.why}</p>}
                     </div>
                   ))}
                 </div>
@@ -259,7 +273,7 @@ export default function Report() {
 
         {/* 隐性重述回放 */}
         <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line">
-          <h2 className="text-lg font-extrabold text-ink mb-4">🔁 帮你顺过的表达</h2>
+          <h2 className="text-lg font-extrabold text-ink mb-4 flex items-center gap-2"><RecastIcon size={20} className="text-primary" /> 帮你顺过的表达</h2>
           {report.recasts.length === 0 ? (
             <div className="text-center py-4 text-sub text-sm">本次没有需要顺的表达，很棒！</div>
           ) : (
@@ -281,13 +295,13 @@ export default function Report() {
 
         {/* 总结 */}
         <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line">
-          <h2 className="text-lg font-extrabold text-ink mb-3">📝 总结</h2>
+          <h2 className="text-lg font-extrabold text-ink mb-3 flex items-center gap-2"><NoteIcon size={20} className="text-primary" /> 总结</h2>
           <p className="text-ink/80 leading-relaxed">{report.summaryText}</p>
         </div>
 
         {/* 成长曲线 */}
         <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line">
-          <h2 className="text-lg font-extrabold text-ink mb-4">📈 成长曲线</h2>
+          <h2 className="text-lg font-extrabold text-ink mb-4 flex items-center gap-2"><GrowthIcon size={20} className="text-primary" /> 成长曲线</h2>
           <Suspense fallback={<div className="text-center py-10 text-sub text-sm">加载中…</div>}>
             <GrowthCurve sessions={growthSessions} />
           </Suspense>
@@ -295,12 +309,12 @@ export default function Report() {
 
         {/* 对话回顾 */}
         <div className="bg-white rounded-3xl shadow-card p-6 mb-8 border border-line">
-          <h2 className="text-lg font-extrabold text-ink mb-4">💬 对话回顾</h2>
+          <h2 className="text-lg font-extrabold text-ink mb-4 flex items-center gap-2"><ChatIcon size={20} className="text-primary" /> 对话回顾</h2>
           <div className="space-y-3">
             {report.annotatedTurns.map((turn, i) => (
               <div key={i} className={`p-3 rounded-2xl ${turn.role === 'user' ? 'bg-primary-light/60' : 'bg-canvas'}`}>
-                <span className={`text-xs font-extrabold ${turn.role === 'user' ? 'text-primary-dark' : 'text-sub'}`}>
-                  {turn.role === 'user' ? '👤 你' : '🤖 AI'}
+                <span className={`text-xs font-extrabold flex items-center gap-1 ${turn.role === 'user' ? 'text-primary-dark' : 'text-sub'}`}>
+                  {turn.role === 'user' ? <><PersonIcon size={14} /> 你</> : <><RobotIcon size={14} /> AI</>}
                 </span>
                 <p className="text-sm text-ink/90 leading-relaxed mt-1">{turn.text}</p>
               </div>
@@ -314,7 +328,7 @@ export default function Report() {
             onClick={goHome}
             className="px-8 py-3 bg-primary text-white rounded-2xl font-extrabold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all shadow-pop"
           >
-            🔄 再练一次
+            <RefreshIcon size={18} className="inline-block -mt-0.5 mr-1 text-white" /> 再练一次
           </button>
         </div>
       </div>

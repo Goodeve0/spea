@@ -2,6 +2,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import type { StoredSession } from '@speak-coach/shared';
+import { GrowthIcon } from './icons';
 
 const DIMS = [
   { key: 'pronunciation', label: '发音', color: '#2EC4B6' },
@@ -21,7 +22,7 @@ export default function GrowthCurve({ sessions }: { sessions: StoredSession[] })
   if (ordered.length < 2) {
     return (
       <div className="text-center py-10">
-        <div className="text-4xl mb-2">📈</div>
+        <GrowthIcon size={36} className="mx-auto mb-2 text-sub" />
         <p className="text-sub text-sm">再练一次，就能看到你的成长曲线啦！</p>
       </div>
     );

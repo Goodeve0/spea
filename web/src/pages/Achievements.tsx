@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { StoredSession } from '@speak-coach/shared';
 
 import AchievementWall from '../components/AchievementWall';
+import { AchievementIcon, TargetIcon, MelonIcon } from '../components/icons';
 import { loadGrowth } from '../store/growth';
 import { useAuthStore } from '../store/auth';
 import { evaluateAchievements, todayDone } from '../lib/gamification';
@@ -29,7 +30,9 @@ export default function Achievements() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 md:py-10">
-      <h1 className="text-2xl font-extrabold text-ink mb-6">🏅 我的成就</h1>
+      <h1 className="text-2xl font-extrabold text-ink mb-6 flex items-center gap-2">
+        <AchievementIcon size={28} className="text-primary" /> 我的成就
+      </h1>
 
       {/* 每日目标 */}
       <div
@@ -37,7 +40,17 @@ export default function Achievements() {
           done ? 'bg-success/10 border-success/30 text-success' : 'bg-white border-line text-ink shadow-card'
         }`}
       >
-        {done ? `✅ 今日已完成 · 连击 ${streak} 天` : '🎯 今日目标：完成 1 次练习，点亮连击'}
+        {done ? (
+          <>
+            <TargetIcon size={16} className="text-success" />
+            今日已完成 · <MelonIcon size={14} /> 连击 {streak} 天
+          </>
+        ) : (
+          <>
+            <TargetIcon size={16} className="text-ink" />
+            今日目标：完成 1 次练习，点亮连击
+          </>
+        )}
       </div>
 
       {/* 成就墙 */}

@@ -4,6 +4,7 @@ import type { StoredSession } from '@speak-coach/shared';
 
 import Mascot from '../components/ui/Mascot';
 import GardenHeatmap from '../components/GardenHeatmap';
+import { ProfileIcon, MelonIcon } from '../components/icons';
 import { useAuthStore } from '../store/auth';
 import { loadGrowth } from '../store/growth';
 import { levelInfo, levelStage } from '../lib/gamification';
@@ -33,7 +34,9 @@ export default function Profile() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 md:py-10">
-      <h1 className="text-2xl font-extrabold text-ink mb-6">👤 我的</h1>
+      <h1 className="text-2xl font-extrabold text-ink mb-6 flex items-center gap-2">
+        <ProfileIcon size={28} className="text-primary" /> 我的
+      </h1>
 
       {/* 账号 / 登录引导 */}
       {user ? (
@@ -64,7 +67,7 @@ export default function Profile() {
       <section className="bg-white rounded-3xl border border-line shadow-card p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <span className="text-2xl">{stage.emoji}</span>
+            <MelonIcon size={28} />
             <div>
               <div className="font-extrabold text-ink">瓜级 Lv.{l.level} · {stage.name}</div>
               <div className="text-xs text-sub mt-0.5">再攒 {toNext} 甜度即可升级</div>
@@ -82,7 +85,7 @@ export default function Profile() {
 
       {/* 我的瓜田 */}
       <section className="bg-white rounded-3xl border border-line shadow-card p-5 mb-6">
-        <h2 className="font-extrabold text-ink mb-3">🍈 我的瓜田</h2>
+        <h2 className="font-extrabold text-ink mb-3 flex items-center gap-2"><MelonIcon size={22} /> 我的瓜田</h2>
         <GardenHeatmap sessions={sessions} />
       </section>
 

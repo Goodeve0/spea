@@ -1,9 +1,11 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { type FC, useEffect, useState, lazy, Suspense } from 'react';
 import { PRESET_SCENARIOS, type StoredSession } from '@speak-coach/shared';
 
 import { loadGrowth } from '../store/growth';
 import { useAuthStore } from '../store/auth';
 import { levelInfo } from '../lib/gamification';
+import { GrowthIcon, MelonIcon, StarIcon, BoltIcon, SproutIcon } from '../components/icons';
+import type { IconProps } from '../components/icons';
 
 const GrowthCurve = lazy(() => import('../components/GrowthCurve'));
 
@@ -15,10 +17,10 @@ function titleOf(scenarioId: string): string {
   return SCENARIO_TITLE[scenarioId] ?? (scenarioId === 'custom' ? '自由话题' : scenarioId);
 }
 
-function StatCard({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+function StatCard({ Icon, label, value }: { Icon: FC<IconProps>; label: string; value: string }) {
   return (
     <div className="bg-white rounded-3xl border border-line shadow-card p-4 text-center">
-      <div className="text-2xl mb-1">{emoji}</div>
+      <Icon size={28} className="mx-auto mb-1 text-primary" />
       <div className="text-xl font-extrabold text-ink">{value}</div>
       <div className="text-xs text-sub mt-0.5">{label}</div>
     </div>
@@ -48,13 +50,15 @@ export default function Progress() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 md:py-10">
-      <h1 className="text-2xl font-extrabold text-ink mb-6">📈 我的成长</h1>
+      <h1 className="text-2xl font-extrabold text-ink mb-6 flex items-center gap-2">
+        <GrowthIcon size={28} className="text-primary" /> 我的成长
+      </h1>
 
       {/* 概览 */}
       <div className="grid grid-cols-3 gap-3 mb-8">
-        <StatCard emoji="🔥" label="连续天数" value={`${streak}`} />
-        <StatCard emoji="⭐" label="当前等级" value={`Lv.${l.level}`} />
-        <StatCard emoji="⚡" label="累计 XP" value={`${xp}`} />
+        <StatCard Icon={MelonIcon} label="连续天数" value={`${streak}`} />
+        <StatCard Icon={StarIcon} label="当前等级" value={`Lv.${l.level}`} />
+        <StatCard Icon={BoltIcon} label="累计 XP" value={`${xp}`} />
       </div>
 
       {/* 成长曲线 */}
@@ -70,7 +74,7 @@ export default function Progress() {
         <h2 className="font-extrabold text-ink mb-3">练习记录</h2>
         {sessions.length === 0 ? (
           <div className="bg-white rounded-3xl border border-line shadow-card p-8 text-center">
-            <div className="text-4xl mb-2">🌱</div>
+            <SproutIcon size={40} className="mx-auto mb-2" />
             <p className="text-sub text-sm">瓜田还空着，去「练习」种下第一颗瓜吧！</p>
           </div>
         ) : (
