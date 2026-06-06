@@ -33,12 +33,16 @@ DATABASE_URL=file:/data/app.db   # 容器内由 compose 注入
 
 **前端**（构建时注入，`web/.env.production` 或平台环境变量）：
 ```
-VITE_SERVER_URL=https://<你的后端域名>     # 账号/数据 API（不带末尾斜杠）
-# LLM：demo 直连（注意 key 会进前端包，仅演示用）
-VITE_OPENAI_API_KEY=<openai key>
-VITE_OPENAI_BASE_URL=https://api.qnaigc.com/v1
+VITE_SERVER_URL=https://<你的后端域名>     # 账号/数据/瓜友 API（不带末尾斜杠）
+
+# 【推荐】走后端 LLM 代理（key 不暴露到前端包）
+VITE_API_BASE_URL=https://<你的后端域名>/api   # 后端已实现此代理（ws-gateway 同端口）
 VITE_LLM_MODEL=deepseek-v3
-# ⚠️ 不要设置 VITE_API_BASE_URL（那是走后端 LLM 代理，当前未实现，设了会调不通）
+
+# 【或】直连 LLM（key 会进前端包，仅演示用）
+# VITE_OPENAI_API_KEY=<openai key>
+# VITE_OPENAI_BASE_URL=https://api.qnaigc.com/v1
+# VITE_LLM_MODEL=deepseek-v3
 ```
 
 ---
@@ -56,9 +60,9 @@ npm run dev -w server
 cloudflared tunnel --url http://localhost:3002
 
 # 3) 用 BACKEND_URL 配置前端并构建
-#    在 web/.env.production 写入：
-#    VITE_SERVER_URL=<BACKEND_URL>
-#    VITE_OPENAI_API_KEY=...  VITE_OPENAI_BASE_URL=...  VITE_LLM_MODEL=deepseek-v3
+#    在 web/.env.production 写入（二选一）：
+#    【推荐-代理】VITE_SERVER_URL=<BACKEND_URL>  VITE_API_BASE_URL=<BACKEND_URL>/api  VITE_LLM_MODEL=deepseek-v3
+#    【直连-demo】VITE_SERVER_URL=<BACKEND_URL>  VITE_OPENAI_API_KEY=...  VITE_OPENAI_BASE_URL=...  VITE_LLM_MODEL=deepseek-v3
 npm run build -w web
 npx vite preview --host --port 4173 -w web    # 或 cd web && npx vite preview --host
 
@@ -92,7 +96,9 @@ HTTPS 暴露二选一：
 
 **前端（Vercel，自带 HTTPS）**：
 1. 导入仓库，Root Directory 选 `web`（已带 [`vercel.json`](web/vercel.json)：SPA 重写 + SW 不缓存）。
-2. 环境变量填：`VITE_SERVER_URL`、`VITE_OPENAI_API_KEY`、`VITE_OPENAI_BASE_URL`、`VITE_LLM_MODEL`。
+2. 环境变量填写（二选一）：
+   - **推荐（后端代理）**：`VITE_SERVER_URL`、`VITE_API_BASE_URL`（值为后端公网地址 + `/api`）、`VITE_LLM_MODEL`
+   - **直连（仅 demo）**：`VITE_SERVER_URL`、`VITE_OPENAI_API_KEY`、`VITE_OPENAI_BASE_URL`、`VITE_LLM_MODEL`
 3. Deploy，得到 `https://xxx.vercel.app`。
 
 **后端**：用方案 B 的 docker-compose 放任意带公网的机器 / Render / Railway，把其公网地址填进前端的 `VITE_SERVER_URL`。
@@ -118,7 +124,7 @@ brew install qrencode && qrencode -o qr.png "https://你的前端地址"
 - **语音识别**：Chrome/Edge 完美；iOS Safari / 微信内置浏览器**不支持**浏览器语音识别 → 应用会**自动切到文字模式**仍可完整体验。要让 iOS 也能"说"，需把识别切到服务端 ASR（后端已有，属增强项）。
 - **麦克风**：需 HTTPS（隧道/Vercel 均满足）；微信内 WebView 录音受限 → 引导用系统浏览器。
 - **PWA**：HTTPS 下可"添加到主屏"、离线打开外壳；`dev` 模式不注册 SW，需 `build`/部署后生效。
-- **安全**：demo 用前端直连 LLM 会暴露 key；正式上线应在后端加 LLM 代理路由后改用 `VITE_API_BASE_URL`。
+- **安全**：前端直连 LLM（设置 `VITE_OPENAI_API_KEY`）会把 key 打入前端包；生产部署推荐改用 `VITE_API_BASE_URL` 走后端代理（后端已实现，key 仅存于服务器端 `OPENAI_API_KEY`）。
 
 ---
 
