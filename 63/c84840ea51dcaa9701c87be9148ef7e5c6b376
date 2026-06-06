@@ -1,0 +1,21 @@
+shared/contracts.ts
+  s_94ac60683601c6::t_833f4f98f708cb 21-22
+  s_94ac60683601c6::t_80a90097538230 20,23-30,114-122,131-132,135-138,249-255,263,268-276,279-287,293,299-341,343,345-346,349-421
+  s_94ac60683601c6::t_352715b8d64d9f 256,277-278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "63c84840ea51dcaa9701c87be9148ef7e5c6b376",
+  "prompts": {},
+  "sessions": {
+    "s_94ac60683601c6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04222bb0-c637-4c0c-bd0e-09b9937c2906",
+        "model": "DeepSeek-V4-Flash"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
