@@ -7,6 +7,7 @@
 import type { ServerPayload, WsMessage } from '@speak-coach/shared';
 
 import { getWsClient } from '../ws-client';
+import { useSettingsStore } from '../store/settings';
 import { DEFAULT_IFLYTEK_VOICE } from './iflytek-voices';
 import type { EngineId, ITtsEngine, TtsSpeakOptions } from './tts-engine';
 
@@ -201,12 +202,14 @@ export class IflytekTtsEngine implements ITtsEngine {
 
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
+    const rate = this.active.options?.rate ?? useSettingsStore.getState().playbackSpeed;
+    source.playbackRate.value = rate;
     source.connect(this.audioContext.destination);
 
     const now = this.audioContext.currentTime;
     const startAt = Math.max(now, this.active.nextStartAt || now);
     source.start(startAt);
-    this.active.nextStartAt = startAt + buffer.duration;
+    this.active.nextStartAt = startAt + buffer.duration / rate;
   }
 
   private scheduleEnd(): void {

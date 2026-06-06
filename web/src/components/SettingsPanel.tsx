@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { IFLYTEK_VOICES } from '../audio/iflytek-voices';
 import type { EngineId } from '../audio/tts-engine';
-import { useSettingsStore } from '../store/settings';
+import { PLAYBACK_SPEED_OPTIONS, useSettingsStore } from '../store/settings';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -14,8 +14,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const iflytekVoice = useSettingsStore((s) => s.iflytekVoice);
   const iflytekDisabled = useSettingsStore((s) => s.iflytekDisabled);
   const iflytekLastError = useSettingsStore((s) => s.iflytekLastError);
+  const playbackSpeed = useSettingsStore((s) => s.playbackSpeed);
   const setTtsEngine = useSettingsStore((s) => s.setTtsEngine);
   const setIflytekVoice = useSettingsStore((s) => s.setIflytekVoice);
+  const setPlaybackSpeed = useSettingsStore((s) => s.setPlaybackSpeed);
 
   useEffect(() => {
     if (!open) return;
@@ -92,6 +94,29 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 讯飞 TTS 不可用，请检查后端 .env 中的 XFYUN_APP_ID / XFYUN_API_KEY / XFYUN_API_SECRET。
               </p>
             )}
+          </section>
+
+          <section>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">播放速度</h3>
+            <div className="flex flex-wrap gap-2">
+              {PLAYBACK_SPEED_OPTIONS.map((speed) => (
+                <label
+                  key={speed}
+                  className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg border border-gray-200 has-[:checked]:border-indigo-400 has-[:checked]:bg-indigo-50"
+                >
+                  <input
+                    type="radio"
+                    name="playback-speed"
+                    value={speed}
+                    checked={playbackSpeed === speed}
+                    onChange={() => setPlaybackSpeed(speed)}
+                    className="w-3.5 h-3.5 text-indigo-600"
+                  />
+                  <span className="text-sm text-gray-800">{speed}x</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-400">切换后对下一句 AI 朗读生效</p>
           </section>
 
           {ttsEngine === 'iflytek' && (

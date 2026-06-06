@@ -8,6 +8,8 @@ export type EngineId = 'browser' | 'iflytek';
 
 export interface TtsSpeakOptions {
   voice?: string;
+  /** 播放速度倍率；未传时引擎回退读取 settings.playbackSpeed */
+  rate?: number;
   onEnd?: () => void;
   onError?: (err: Error) => void;
 }
