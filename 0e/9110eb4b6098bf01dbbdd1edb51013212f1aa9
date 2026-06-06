@@ -1,0 +1,19 @@
+web/src/audio/voice-input-constants.ts
+  s_87206fd6839359::t_47872f74a17372 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "0e9110eb4b6098bf01dbbdd1edb51013212f1aa9",
+  "prompts": {},
+  "sessions": {
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
