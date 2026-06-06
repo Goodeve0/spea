@@ -98,6 +98,27 @@ export class WsClient {
     this.send('session.end', {});
   }
 
+  // -------- 瓜友实时房间 --------
+  createRoom(token: string, scenarioId: string, difficulty: Difficulty): void {
+    this.send('room.create', { token, scenarioId, difficulty } as ClientPayload.RoomCreate);
+  }
+
+  joinRoom(token: string, roomId: string): void {
+    this.send('room.join', { token, roomId } as ClientPayload.RoomJoin);
+  }
+
+  sendRoomUtterance(text: string): void {
+    this.send('room.utterance', { text } as ClientPayload.RoomUtterance);
+  }
+
+  leaveRoom(): void {
+    this.send('room.leave', {});
+  }
+
+  endRoom(): void {
+    this.send('room.end', {});
+  }
+
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(() => {

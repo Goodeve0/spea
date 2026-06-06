@@ -27,6 +27,19 @@ function Svg({ size = 24, className = '', children }: IconProps & { children: Re
   );
 }
 
+/** 瓜友：两颗相依的哈密瓜（社交伙伴） */
+export function BuddyIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="8.5" cy="12" r="5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="15.5" cy="12" r="5" stroke="currentColor" strokeWidth="2" />
+      <path d="M6.4 10.2q2.1 1.2 4.2 0M6.4 13.4q2.1 1.2 4.2 0" stroke={ORANGE} strokeWidth="1.1" />
+      <path d="M13.4 10.2q2.1 1.2 4.2 0M13.4 13.4q2.1 1.2 4.2 0" stroke={ORANGE} strokeWidth="1.1" />
+      <path d="M8.5 6.4q.6-1.4 2-1M15.5 6.4q.6-1.4 2-1" stroke={GREEN} strokeWidth="1.6" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 /** 练习：麦克风（罩面带哈密瓜网纹） */
 export function PracticeIcon(props: IconProps) {
   return (

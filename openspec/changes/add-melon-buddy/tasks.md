@@ -47,23 +47,23 @@
 
 ## 7. 前端 API / Store
 
-- [ ] 7.1 `web/src/api/client.ts`：新增 buddy.* 方法 + `updateProfile`
-- [ ] 7.2 `web/src/store/buddy.ts`：匹配/邀请/列表/贴纸/排行状态（Zustand）+ `buddy.store.test.ts`
-- [ ] 7.3 `web/src/store/settings.ts`：avatar/偏好变更后登录态同步 `PUT /me/profile`
-- [ ] 7.4 `web/src/ws/room-client.ts`：房间 WS 收发封装 + 轮次状态机 + `room-client.test.ts`（mock WS）
+- [x] 7.1 `web/src/api/client.ts`：新增 buddy.* 方法 + `updateProfile`
+- [x] 7.2 `web/src/store/buddy.ts`：匹配/邀请/列表/贴纸/排行状态（Zustand）+ `buddy.store.test.ts`
+- [x] 7.3 `web/src/store/settings.ts`：avatar/偏好变更后登录态同步 `PUT /me/profile`
+- [x] 7.4 `web/src/ws/room-client.ts`：房间 WS 收发封装 + 轮次状态机 + `room-client.test.ts`（mock WS）
 
 ## 8. 前端页面 / 组件
 
-- [ ] 8.1 `web/src/pages/Buddies.tsx`：三 Tab（发现/我的瓜友/排行）+ 游客登录引导
-- [ ] 8.2 组件：`BuddyCard`、`MatchFilters`、`StickerPicker`、`BuddyRanking`、`EncouragementToast`
-- [ ] 8.3 `web/src/pages/LiveRoom.tsx`（`/room/:id` 全屏）：双人头像 + 轮次高亮 + AI 对话区 + 对方发言气泡 + 麦克风（非己方轮次禁用），复用现有 STT/TTS
-- [ ] 8.4 `web/src/components/icons.tsx`：新增 `BuddyIcon`（melon 风格）
-- [ ] 8.5 导航：Sidebar / BottomTabBar 增加「瓜友」入口
-- [ ] 8.6 `web/src/App.tsx`：注册 `/buddies`（AppShell 内）与 `/room/:id`（全屏）路由
+- [x] 8.1 `web/src/pages/Buddies.tsx`：三 Tab（发现/我的瓜友/排行）+ 游客登录引导
+- [x] 8.2 组件：`BuddyCard`、`MatchFilters`、`StickerPicker`、`BuddyRanking`、`EncouragementToast`
+- [x] 8.3 `web/src/pages/LiveRoom.tsx`（`/room/:id` 全屏）：双人头像 + 轮次高亮 + AI 对话区 + 对方发言气泡 + 麦克风（非己方轮次禁用），复用现有 STT/TTS
+- [x] 8.4 `web/src/components/icons.tsx`：新增 `BuddyIcon`（melon 风格）
+- [x] 8.5 导航：Sidebar / BottomTabBar 增加「瓜友」入口
+- [x] 8.6 `web/src/App.tsx`：注册 `/buddies`（AppShell 内）与 `/room/:id`（全屏）路由
 
 ## 9. 验证
 
 - [~] 9.1 `npm test`（server 全绿 135 项；web 待前端阶段）
-- [ ] 9.2 `tsc --noEmit`（server + web）通过
-- [ ] 9.3 手动联调：两浏览器登录 → 匹配 → 邀请 → 约一把 → 双排协作 → 各记一次会话 → 排行/连胜更新
-- [ ] 9.4 种子瓜友在匹配/排行中可见，约练习对种子置灰
+- [x] 9.2 `tsc --noEmit`（server + web）通过
+- [x] 9.3 手动联调：两浏览器登录 → 匹配 → 邀请 → 约一把 → 双排协作 → 各记一次会话 → 排行/连胜更新
+- [x] 9.4 种子瓜友在匹配/排行中可见，约练习对种子置灰
