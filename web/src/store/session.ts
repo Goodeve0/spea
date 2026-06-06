@@ -12,6 +12,8 @@ interface SessionState {
   currentAiText: string;
   report: Report | null;
   connected: boolean;
+  /** 当前正在朗读的消息 ID（null 表示无朗读） */
+  readingTurnId: string | null;
 
   // Actions
   setSession: (id: string, scenarioId: string, difficulty: Difficulty) => void;
@@ -22,6 +24,7 @@ interface SessionState {
   resetAiText: () => void;
   setReport: (report: Report) => void;
   setConnected: (v: boolean) => void;
+  setReadingTurnId: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -35,6 +38,7 @@ const initialState = {
   currentAiText: '',
   report: null,
   connected: false,
+  readingTurnId: null,
 };
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -58,6 +62,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   setReport: (report) => set({ report }),
 
   setConnected: (v) => set({ connected: v }),
+
+  setReadingTurnId: (id) => set({ readingTurnId: id }),
 
   reset: () => set(initialState),
 }));
