@@ -1,0 +1,38 @@
+openspec/specs/tts-engine/spec.md
+  s_87206fd6839359::t_534b4a1d002373 46-87
+web/src/audio/speech-synthesis.test.ts
+  s_87206fd6839359::t_c35a42d674979a 94,103-114
+  s_87206fd6839359::t_d08b7081d1c712 50-52
+  s_87206fd6839359::t_aea93955cea871 72,87-88
+  s_87206fd6839359::t_8264785c35722d 1-49,53-71,73-86,89-93,95-102,115-117
+openspec/specs/read-aloud/spec.md
+  s_87206fd6839359::t_534b4a1d002373 61-89
+web/src/audio/iflytek-tts-client.ts
+  s_87206fd6839359::t_16d6069534d705 20,33-36,46,53,66,75,88-91,133-155,157,159-161,176,184-186,190-191,196-197,202,208,218-220,241-246,253-254,256-257,261-263,266
+web/src/audio/iflytek-tts-client.test.ts
+  s_87206fd6839359::t_e45509b2480982 1-135
+web/src/audio/speech-synthesis.ts
+  s_87206fd6839359::t_09c96dd6f2a80e 85-89
+  s_87206fd6839359::t_f7b5a15851cf61 15-16,42,45-47,54-57,72,77,83,101,106
+web/src/pages/Conversation.tsx
+  s_87206fd6839359::t_8f106340c28d67 69-70,72-73,80-81,84-85,88-89,98,103,113-115,120,127
+  s_87206fd6839359::t_07241d4a01a07b 134,147
+  s_87206fd6839359::t_5b301217b719ec 131,133,136,141-143,146,149
+  s_87206fd6839359::t_9062349dbb06ee 173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "a31da1477f6615b74fc33251998da58b14166def",
+  "prompts": {},
+  "sessions": {
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
