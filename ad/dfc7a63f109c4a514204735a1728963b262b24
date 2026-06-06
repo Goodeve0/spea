@@ -1,0 +1,22 @@
+server/src/db/prisma.ts
+  s_87206fd6839359::t_4056631f4ea7b8 5
+.env.example
+  s_87206fd6839359::t_31ae72f814ac7f 32-33,35-37
+  s_87206fd6839359::t_a46a89b047a98f 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "addfc7a63f109c4a514204735a1728963b262b24",
+  "prompts": {},
+  "sessions": {
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
