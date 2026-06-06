@@ -3,6 +3,8 @@
  * 采集麦克风音频，支持 VAD 检测说话结束
  */
 
+import { SilenceDetector } from './silence-detector';
+
 export interface AudioRecorder {
   start(): Promise<void>;
   stop(): void;
@@ -18,8 +20,7 @@ export class BrowserAudioRecorder implements AudioRecorder {
   private dataCallbacks: Array<(chunk: ArrayBuffer) => void> = [];
   private silenceCallbacks: Array<() => void> = [];
   private recording = false;
-  private silenceTimer: ReturnType<typeof setTimeout> | null = null;
-  private silenceThreshold = 700;
+  private silenceDetector: SilenceDetector | null = null;
 
   async start(): Promise<void> {
     if (this.recording) return;
@@ -41,18 +42,21 @@ export class BrowserAudioRecorder implements AudioRecorder {
 
     this.mediaRecorder.start(1000);
     this.recording = true;
-    this.startVadMonitoring();
+
+    this.silenceDetector = new SilenceDetector({ silenceDurationMs: 700 });
+    this.silenceDetector.onSilence(() => {
+      this.silenceCallbacks.forEach((cb) => cb());
+    });
+    this.silenceDetector.start(this.stream);
   }
 
   stop(): void {
     if (!this.recording) return;
     this.mediaRecorder?.stop();
+    this.silenceDetector?.stop();
+    this.silenceDetector = null;
     this.stream?.getTracks().forEach((t) => t.stop());
     this.recording = false;
-    if (this.silenceTimer) {
-      clearTimeout(this.silenceTimer);
-      this.silenceTimer = null;
-    }
   }
 
   onData(callback: (chunk: ArrayBuffer) => void): void {
@@ -65,39 +69,5 @@ export class BrowserAudioRecorder implements AudioRecorder {
 
   isRecording(): boolean {
     return this.recording;
-  }
-
-  private startVadMonitoring(): void {
-    if (!this.stream) return;
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(this.stream);
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 512;
-    source.connect(analyser);
-
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    let isSpeaking = false;
-
-    const checkVad = () => {
-      if (!this.recording) return;
-      analyser.getByteFrequencyData(dataArray);
-      const avg = dataArray.reduce((s, v) => s + v, 0) / dataArray.length;
-
-      if (avg > 15) {
-        isSpeaking = true;
-        if (this.silenceTimer) {
-          clearTimeout(this.silenceTimer);
-          this.silenceTimer = null;
-        }
-      } else if (isSpeaking && !this.silenceTimer) {
-        this.silenceTimer = setTimeout(() => {
-          isSpeaking = false;
-          this.silenceTimer = null;
-          this.silenceCallbacks.forEach((cb) => cb());
-        }, this.silenceThreshold);
-      }
-      requestAnimationFrame(checkVad);
-    };
-    checkVad();
   }
 }
