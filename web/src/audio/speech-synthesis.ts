@@ -12,6 +12,8 @@ export class BrowserSpeechSynthesisEngine implements ITtsEngine {
   private utterance: SpeechSynthesisUtterance | null = null;
   private speaking = false;
   private cachedVoices: SpeechSynthesisVoice[] = [];
+  /** 播放代际：stop 或新 speak 时递增，作废旧 utterance 回调 */
+  private generation = 0;
 
   constructor() {
     // #8 voices 在 Chrome 中异步加载，首次 getVoices() 可能为空。
@@ -37,17 +39,22 @@ export class BrowserSpeechSynthesisEngine implements ITtsEngine {
   speak(text: string, options?: TtsSpeakOptions | (() => void)): void {
     const opts: TtsSpeakOptions | undefined = typeof options === 'function' ? { onEnd: options } : options;
     this.stop();
+    const gen = ++this.generation;
 
     if (!text.trim()) {
-      opts?.onEnd?.();
+      if (gen === this.generation) {
+        opts?.onEnd?.();
+      }
       return;
     }
 
     if (!this.isSupported()) {
       const err = new Error('SpeechSynthesis API is not supported in this browser');
       console.error('[BrowserSpeechSynthesisEngine.speak] unsupported:', err);
-      opts?.onError?.(err);
-      opts?.onEnd?.();
+      if (gen === this.generation) {
+        opts?.onError?.(err);
+        opts?.onEnd?.();
+      }
       return;
     }
 
@@ -62,16 +69,24 @@ export class BrowserSpeechSynthesisEngine implements ITtsEngine {
     }
 
     utterance.onstart = () => {
+      if (gen !== this.generation) return;
       this.speaking = true;
     };
 
     utterance.onend = () => {
+      if (gen !== this.generation) return;
       this.speaking = false;
       opts?.onEnd?.();
     };
 
     utterance.onerror = (event) => {
+      if (gen !== this.generation) return;
       this.speaking = false;
+      if (event.error === 'interrupted') {
+        // cancel 后 Chrome 可能对未播 utterance 触发 interrupted，仍需 onEnd 释放 UI/锁
+        opts?.onEnd?.();
+        return;
+      }
       const err = new Error(`SpeechSynthesis error: ${event.error ?? 'unknown'}`);
       console.error('[BrowserSpeechSynthesisEngine.onerror]', err);
       opts?.onError?.(err);
@@ -83,10 +98,12 @@ export class BrowserSpeechSynthesisEngine implements ITtsEngine {
   }
 
   stop(): void {
+    ++this.generation;
     if (typeof speechSynthesis !== 'undefined' && speechSynthesis.speaking) {
       speechSynthesis.cancel();
     }
     this.speaking = false;
+    this.utterance = null;
   }
 
   isSpeaking(): boolean {
