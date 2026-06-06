@@ -1,0 +1,21 @@
+web/src/store/session.ts
+  ai_agent 15-16,27,41,66
+openspec/changes/archive/2026-06-06-add-read-aloud/.openspec.yaml
+  ai_agent 1-2
+openspec/changes/archive/2026-06-06-add-read-aloud/tasks.md
+  ai_agent 1-32
+openspec/changes/archive/2026-06-06-add-read-aloud/proposal.md
+  ai_agent 1-26
+openspec/changes/archive/2026-06-06-add-read-aloud/specs/read-aloud/spec.md
+  ai_agent 1-60
+openspec/specs/read-aloud/spec.md
+  ai_agent 1-60
+openspec/changes/archive/2026-06-06-add-read-aloud/design.md
+  ai_agent 1-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "3d9f14f0953c009377b2da6648281a87a60b5a2b",
+  "prompts": {}
+}
