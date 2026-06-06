@@ -1,4 +1,5 @@
 import { type FC, useEffect, useState, lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PRESET_SCENARIOS, type StoredSession } from '@speak-coach/shared';
 
 import { loadGrowth } from '../store/growth';
@@ -28,6 +29,7 @@ function StatCard({ Icon, label, value }: { Icon: FC<IconProps>; label: string; 
 }
 
 export default function Progress() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [streak, setStreak] = useState(0);
   const [xp, setXp] = useState(0);
@@ -82,7 +84,8 @@ export default function Progress() {
             {sessions.map((s) => (
               <li
                 key={s.id}
-                className="bg-white rounded-2xl border border-line shadow-card px-4 py-3 flex items-center justify-between"
+                onClick={() => navigate(`/session/${s.id}`)}
+                className="bg-white rounded-2xl border border-line shadow-card px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-primary-light/25 active:scale-[0.98] transition-all"
               >
                 <div className="min-w-0">
                   <div className="font-bold text-ink truncate">{titleOf(s.scenarioId)}</div>
@@ -96,9 +99,12 @@ export default function Progress() {
                     {s.cefrEstimate ? ` · ${s.cefrEstimate}` : ''}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0 ml-3">
-                  <span className="text-lg font-extrabold text-primary">{Math.round(s.overallScore)}</span>
-                  <span className="text-xs text-sub">分</span>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                  <div className="flex items-center gap-1">
+                    <span className="text-lg font-extrabold text-primary">{Math.round(s.overallScore)}</span>
+                    <span className="text-xs text-sub">分</span>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-sub/50"><path d="M9 18l6-6-6-6"/></svg>
                 </div>
               </li>
             ))}

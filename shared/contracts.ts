@@ -393,6 +393,8 @@ export interface StoredSession {
   overallScore: number;
   /** CEFR 等级估算 */
   cefrEstimate?: string;
+  /** 完整报告（本地缓存，用于回溯查看） */
+  report?: Report;
 }
 
 /** HTTP API 请求/响应契约 */

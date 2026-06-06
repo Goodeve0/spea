@@ -42,14 +42,16 @@ export async function loadGrowth(): Promise<Growth> {
 /** 记录一次会话（登录上报服务端 + 本地缓存；游客仅本地） */
 export async function recordSession(session: StoredSession, report?: Report): Promise<void> {
   const { token, user } = useAuthStore.getState();
+  // 本地缓存始终带上完整 report，以便回溯查看
+  const localSession: StoredSession = { ...session, report };
   if (token) {
-    saveLocalSession({ ...session, userId: user?.id }, user?.id);
+    saveLocalSession({ ...localSession, userId: user?.id }, user?.id);
     try {
       await api.submitSession(token, { session, report });
     } catch (e) {
       console.warn('[growth] 上报会话失败（已本地缓存）:', e);
     }
   } else {
-    saveLocalSession(session, undefined);
+    saveLocalSession(localSession, undefined);
   }
 }

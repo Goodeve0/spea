@@ -6,6 +6,7 @@ import Achievements from './pages/Achievements';
 import Profile from './pages/Profile';
 import Conversation from './pages/Conversation';
 import Report from './pages/Report';
+import SessionDetail from './pages/SessionDetail';
 import Login from './pages/Login';
 import DevPreview from './pages/DevPreview';
 
@@ -25,6 +26,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/conversation" element={<Conversation />} />
         <Route path="/report" element={<Report />} />
+        <Route path="/session/:id" element={<SessionDetail />} />
         <Route path="/preview" element={<DevPreview />} />
       </Routes>
     </BrowserRouter>

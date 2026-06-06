@@ -52,6 +52,11 @@ export function replaceLocalSessions(sessions: StoredSession[], userId?: string)
   }
 }
 
+/** 按 id 查找某命名空间下的一条会话 */
+export function findLocalSession(sessionId: string, userId?: string): StoredSession | undefined {
+  return loadLocalSessions(userId).find((s) => s.id === sessionId);
+}
+
 /** 清空某命名空间 */
 export function clearLocalSessions(userId?: string): void {
   if (typeof window === 'undefined') return;
