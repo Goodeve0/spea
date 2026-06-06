@@ -95,7 +95,7 @@ export class MockAsrService implements IAsrService {
 
   createStream(): AsrStream {
     const self = this;
-    const stream = new EventEmitter() as AsrStream;
+    const stream = new EventEmitter() as unknown as AsrStream;
     const chunks: ArrayBuffer[] = [];
 
     stream.push = (chunk: ArrayBuffer) => chunks.push(chunk);

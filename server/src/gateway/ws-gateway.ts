@@ -17,8 +17,38 @@ import type {
   Turn,
   PronunciationResult,
   ErrorCode,
+  Scenario,
+  Difficulty,
+  RadarScores,
+  RoomMember,
+  StoredSession,
 } from '@speak-coach/shared';
 import { PRESET_SCENARIOS } from '@speak-coach/shared';
+import { verifyToken } from '../http/auth.service';
+import { submitSession } from '../http/repo';
+import { prisma } from '../db/prisma';
+
+/** 房间成员（含连接） */
+interface RoomMemberConn {
+  userId: string;
+  ws: WebSocket;
+  displayName: string;
+  avatarKey: string;
+}
+
+/** 实时练习房间状态（内存态，不落库；结束时为每位有发言者各记一次 Session） */
+interface RoomState {
+  id: string;
+  scenario: Scenario; // 已应用难度
+  difficulty: string;
+  members: RoomMemberConn[]; // 当前在房
+  participants: Map<string, { displayName: string; avatarKey: string }>; // 曾参与
+  turns: Turn[]; // 共享对话历史（AI + 两人）
+  perUserTurns: Map<string, Turn[]>; // 各自发言，用于结束记会话
+  currentTurnUserId: string;
+  started: boolean;
+  finalized: boolean;
+}
 
 /** 会话状态 */
 interface SessionState {
@@ -36,6 +66,9 @@ export class WsGateway {
   private wss: WebSocketServer | null = null;
   private sessions = new Map<string, SessionState>();
   private clientSessions = new Map<WebSocket, string>();
+  // 瓜友实时房间
+  private rooms = new Map<string, RoomState>();
+  private clientRooms = new Map<WebSocket, string>();
 
   constructor(
     private readonly dialogService: DialogService,
@@ -76,6 +109,7 @@ export class WsGateway {
       ws.on('close', () => {
         console.log('Client disconnected');
         this.cleanupClient(ws);
+        this.removeFromRoom(ws).catch((err) => console.error('[room cleanup]', err));
       });
     });
 
@@ -205,6 +239,21 @@ export class WsGateway {
         break;
       case 'tts.request':
         await this.handleTtsRequest(ws, payload as ClientPayload.TtsRequest);
+        break;
+      case 'room.create':
+        await this.handleRoomCreate(ws, payload as ClientPayload.RoomCreate);
+        break;
+      case 'room.join':
+        await this.handleRoomJoin(ws, payload as ClientPayload.RoomJoin);
+        break;
+      case 'room.utterance':
+        await this.handleRoomUtterance(ws, payload as ClientPayload.RoomUtterance);
+        break;
+      case 'room.leave':
+        await this.removeFromRoom(ws);
+        break;
+      case 'room.end':
+        await this.handleRoomEnd(ws);
         break;
       default:
         this.sendError(ws, 'INVALID_MESSAGE', `Unknown message type: ${type}`);
@@ -392,6 +441,245 @@ export class WsGateway {
       console.error('[WsGateway.handleTtsRequest] failed, requestId:', requestId, err);
       this.send(ws, 'tts.error', { requestId, code: 'TTS_FAILED', message });
     }
+  }
+
+  // ==================== 瓜友实时房间 ====================
+
+  /** 加载房间成员的公开信息 */
+  private async loadMember(userId: string, ws: WebSocket): Promise<RoomMemberConn> {
+    const u = await prisma.user.findUnique({ where: { id: userId } });
+    return {
+      userId,
+      ws,
+      displayName: u?.displayName ?? 'Guest',
+      avatarKey: u?.avatarKey ?? 'melon',
+    };
+  }
+
+  private toPublicMember(m: RoomMemberConn): RoomMember {
+    return { userId: m.userId, displayName: m.displayName, avatarKey: m.avatarKey };
+  }
+
+  private publicMembers(room: RoomState): RoomMember[] {
+    return room.members.map((m) => this.toPublicMember(m));
+  }
+
+  private getRoomByClient(ws: WebSocket): RoomState | undefined {
+    const id = this.clientRooms.get(ws);
+    return id ? this.rooms.get(id) : undefined;
+  }
+
+  private broadcast(room: RoomState, type: ServerMessageType, payload: unknown): void {
+    for (const m of room.members) this.send(m.ws, type, payload);
+  }
+
+  private broadcastExcept(room: RoomState, ws: WebSocket, type: ServerMessageType, payload: unknown): void {
+    for (const m of room.members) if (m.ws !== ws) this.send(m.ws, type, payload);
+  }
+
+  /** 创建房间并入房（鉴权） */
+  private async handleRoomCreate(ws: WebSocket, payload: ClientPayload.RoomCreate): Promise<void> {
+    let userId: string;
+    try {
+      userId = verifyToken(payload.token);
+    } catch {
+      this.send(ws, 'room.error', { code: 'UNAUTHORIZED', message: '登录已失效，请重新登录' });
+      return;
+    }
+    const scenario = PRESET_SCENARIOS.find((s) => s.id === payload.scenarioId);
+    if (!scenario) {
+      this.send(ws, 'room.error', { code: 'SESSION_NOT_FOUND', message: `场景不存在: ${payload.scenarioId}` });
+      return;
+    }
+    const roomId = this.generateId();
+    const member = await this.loadMember(userId, ws);
+    const room: RoomState = {
+      id: roomId,
+      scenario: { ...scenario, difficulty: payload.difficulty },
+      difficulty: payload.difficulty,
+      members: [member],
+      participants: new Map([[userId, { displayName: member.displayName, avatarKey: member.avatarKey }]]),
+      turns: [],
+      perUserTurns: new Map(),
+      currentTurnUserId: userId,
+      started: false,
+      finalized: false,
+    };
+    this.rooms.set(roomId, room);
+    this.clientRooms.set(ws, roomId);
+    this.send(ws, 'room.created', { roomId });
+    this.send(ws, 'room.joined', { roomId, members: this.publicMembers(room) });
+  }
+
+  /** 加入已有房间（鉴权 + 满员校验） */
+  private async handleRoomJoin(ws: WebSocket, payload: ClientPayload.RoomJoin): Promise<void> {
+    let userId: string;
+    try {
+      userId = verifyToken(payload.token);
+    } catch {
+      this.send(ws, 'room.error', { code: 'UNAUTHORIZED', message: '登录已失效，请重新登录' });
+      return;
+    }
+    const room = this.rooms.get(payload.roomId);
+    if (!room || room.finalized) {
+      this.send(ws, 'room.error', { code: 'ROOM_NOT_FOUND', message: '房间不存在或已结束' });
+      return;
+    }
+    if (room.members.length >= 2) {
+      this.send(ws, 'room.error', { code: 'ROOM_FULL', message: '房间已满' });
+      return;
+    }
+    const member = await this.loadMember(userId, ws);
+    room.members.push(member);
+    room.participants.set(userId, { displayName: member.displayName, avatarKey: member.avatarKey });
+    this.clientRooms.set(ws, room.id);
+    this.send(ws, 'room.joined', { roomId: room.id, members: this.publicMembers(room) });
+    this.broadcastExcept(room, ws, 'room.peer.joined', { member: this.toPublicMember(member) });
+
+    if (room.members.length === 2 && !room.started) {
+      await this.startRoom(room);
+    }
+  }
+
+  /** 两人到齐：AI 开场，轮次给创建者（members[0]） */
+  private async startRoom(room: RoomState): Promise<void> {
+    room.started = true;
+    const greeting = await this.dialogService.greet(room.scenario);
+    room.turns.push({
+      id: this.generateId(),
+      sessionId: room.id,
+      role: 'ai',
+      text: greeting,
+      timestamp: Date.now(),
+    });
+    room.currentTurnUserId = room.members[0].userId;
+    this.broadcast(room, 'room.ready', { greeting, currentTurnUserId: room.currentTurnUserId });
+  }
+
+  /** 当前轮用户发言：广播 + AI 回复 + 切轮 */
+  private async handleRoomUtterance(ws: WebSocket, payload: ClientPayload.RoomUtterance): Promise<void> {
+    const room = this.getRoomByClient(ws);
+    if (!room) {
+      this.send(ws, 'room.error', { code: 'ROOM_NOT_FOUND', message: '不在任何房间中' });
+      return;
+    }
+    const member = room.members.find((m) => m.ws === ws);
+    if (!member) return;
+    if (room.currentTurnUserId !== member.userId) {
+      this.send(ws, 'room.error', { code: 'NOT_YOUR_TURN', message: '还没轮到你说' });
+      return;
+    }
+    const text = (payload?.text ?? '').trim();
+    if (!text) return;
+
+    // 记录该用户发言
+    const userTurn: Turn = {
+      id: this.generateId(),
+      sessionId: room.id,
+      role: 'user',
+      text,
+      timestamp: Date.now(),
+    };
+    room.turns.push(userTurn);
+    const arr = room.perUserTurns.get(member.userId) ?? [];
+    arr.push(userTurn);
+    room.perUserTurns.set(member.userId, arr);
+
+    // 广播给另一人
+    this.broadcastExcept(room, ws, 'room.peer.utterance', { userId: member.userId, text });
+
+    // AI 流式回复（共享上下文 keyed by room.id）
+    let full = '';
+    await this.dialogService.reply(room.id, text, (delta) => {
+      full += delta;
+      this.broadcast(room, 'room.ai.text', { deltaText: delta });
+    });
+    room.turns.push({
+      id: this.generateId(),
+      sessionId: room.id,
+      role: 'ai',
+      text: full,
+      timestamp: Date.now(),
+    });
+    this.broadcast(room, 'room.ai.done', {});
+
+    // 切换轮次给另一人；降级独自时轮次恒为自己
+    const other = room.members.find((m) => m.userId !== member.userId);
+    room.currentTurnUserId = other ? other.userId : member.userId;
+    this.broadcast(room, 'room.turn', { currentTurnUserId: room.currentTurnUserId });
+  }
+
+  /** 主动结束房间：记会话 + 广播 + 清理 */
+  private async handleRoomEnd(ws: WebSocket): Promise<void> {
+    const room = this.getRoomByClient(ws);
+    if (!room) return;
+    await this.finalizeRoom(room);
+    this.broadcast(room, 'room.ended', {});
+    for (const m of room.members) this.clientRooms.delete(m.ws);
+    this.rooms.delete(room.id);
+  }
+
+  /** 成员离开（主动 leave 或掉线）：通知对方，空房则结算清理 */
+  private async removeFromRoom(ws: WebSocket): Promise<void> {
+    const roomId = this.clientRooms.get(ws);
+    if (!roomId) return;
+    this.clientRooms.delete(ws);
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const idx = room.members.findIndex((m) => m.ws === ws);
+    if (idx === -1) return;
+    const [left] = room.members.splice(idx, 1);
+
+    this.broadcast(room, 'room.peer.left', { userId: left.userId });
+
+    if (room.members.length === 0) {
+      await this.finalizeRoom(room);
+      this.rooms.delete(room.id);
+    } else {
+      // 降级：剩余者轮次恒为自己
+      room.currentTurnUserId = room.members[0].userId;
+      this.broadcast(room, 'room.turn', { currentTurnUserId: room.currentTurnUserId });
+    }
+  }
+
+  /** 结算：为每位有发言的参与者各记一次 Session（计入个人成长） */
+  private async finalizeRoom(room: RoomState): Promise<void> {
+    if (room.finalized) return;
+    room.finalized = true;
+    const aiTurns = room.turns.filter((t) => t.role === 'ai');
+    for (const [userId, turns] of room.perUserTurns.entries()) {
+      if (turns.length === 0) continue;
+      const merged = [...turns, ...aiTurns].sort((a, b) => a.timestamp - b.timestamp);
+      let report;
+      try {
+        report = await this.reportService.generate(room.id, merged, [], []);
+      } catch (err) {
+        console.error('[finalizeRoom] report failed for', userId, err);
+        continue;
+      }
+      const overallScore = this.avgRadar(report.radar);
+      const sessionId = this.generateId();
+      const stored: StoredSession = {
+        id: sessionId,
+        userId,
+        timestamp: Date.now(),
+        scenarioId: room.scenario.id,
+        difficulty: room.difficulty as Difficulty,
+        radar: report.radar,
+        overallScore,
+        cefrEstimate: report.cefrEstimate,
+      };
+      try {
+        await submitSession(userId, stored, { ...report, sessionId });
+      } catch (err) {
+        console.error('[finalizeRoom] submitSession failed for', userId, err);
+      }
+    }
+  }
+
+  private avgRadar(r: RadarScores): number {
+    const vals = [r.pronunciation, r.fluency, r.grammar, r.vocabulary, r.taskCompletion];
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
   }
 
   private getSession(ws: WebSocket): SessionState | undefined {

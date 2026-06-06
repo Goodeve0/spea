@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 
 import { authRouter } from './auth.routes';
 import { dataRouter } from './data.routes';
+import { buddyRouter } from './buddy.routes';
 import { errorMiddleware } from './errors';
 
 /** 轻量 CORS（dev：放开本地前端访问） */
@@ -25,6 +26,7 @@ export function createHttpApp(): Express {
   app.get('/health', (_req, res) => res.json({ ok: true }));
   app.use('/auth', authRouter);
   app.use('/', dataRouter);
+  app.use('/', buddyRouter);
 
   app.use(errorMiddleware);
   return app;

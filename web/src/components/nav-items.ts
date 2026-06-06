@@ -5,6 +5,7 @@ import {
   GrowthIcon,
   AchievementIcon,
   ProfileIcon,
+  BuddyIcon,
   type IconProps,
 } from './icons';
 
@@ -21,6 +22,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: '练习', Icon: PracticeIcon, end: true },
   { to: '/progress', label: '成长', Icon: GrowthIcon },
+  { to: '/buddies', label: '瓜友', Icon: BuddyIcon },
   { to: '/achievements', label: '成就', Icon: AchievementIcon },
   { to: '/profile', label: '我的', Icon: ProfileIcon },
 ];

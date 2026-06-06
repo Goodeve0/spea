@@ -7,7 +7,7 @@ import { emptyResult, estimateResult, type IPronunciationService } from './pronu
 /** 支持的发音评测服务商 */
 export type PronunciationProvider = 'iflytek' | 'azure' | 'estimate';
 
-export { IPronunciationService } from './pronunciation-shared';
+export type { IPronunciationService } from './pronunciation-shared';
 export { AzurePronunciationService } from './pronunciation-azure.service';
 export { IflytekPronunciationService } from './pronunciation-iflytek.service';
 

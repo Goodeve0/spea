@@ -7,6 +7,8 @@ import Profile from './pages/Profile';
 import Conversation from './pages/Conversation';
 import Report from './pages/Report';
 import SessionDetail from './pages/SessionDetail';
+import Buddies from './pages/Buddies';
+import LiveRoom from './pages/LiveRoom';
 import Login from './pages/Login';
 import DevPreview from './pages/DevPreview';
 
@@ -18,6 +20,7 @@ function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<ScenarioHub />} />
           <Route path="/progress" element={<Progress />} />
+          <Route path="/buddies" element={<Buddies />} />
           <Route path="/achievements" element={<Achievements />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
@@ -27,6 +30,7 @@ function App() {
         <Route path="/conversation" element={<Conversation />} />
         <Route path="/report" element={<Report />} />
         <Route path="/session/:id" element={<SessionDetail />} />
+        <Route path="/room/:id" element={<LiveRoom />} />
         <Route path="/preview" element={<DevPreview />} />
       </Routes>
     </BrowserRouter>

@@ -52,8 +52,8 @@ describe('WsGateway 集成测试', () => {
 
     const started = sentMessages.find((m) => m.type === 'session.started');
     expect(started).toBeTruthy();
-    expect(started.payload.sessionId).toBeTruthy();
-    expect(started.payload.greeting).toBe('Hello! Welcome to the interview.');
+    expect(started!.payload.sessionId).toBeTruthy();
+    expect(started!.payload.greeting).toBe('Hello! Welcome to the interview.');
   });
 
   it('非法 scenario → 收到 error', async () => {
@@ -64,7 +64,7 @@ describe('WsGateway 集成测试', () => {
 
     const error = sentMessages.find((m) => m.type === 'error');
     expect(error).toBeTruthy();
-    expect(error.payload.code).toBe('SESSION_NOT_FOUND');
+    expect(error!.payload.code).toBe('SESSION_NOT_FOUND');
   });
 
   it('未知消息类型 → 收到 error INVALID_MESSAGE', async () => {
@@ -75,7 +75,7 @@ describe('WsGateway 集成测试', () => {
 
     const error = sentMessages.find((m) => m.type === 'error');
     expect(error).toBeTruthy();
-    expect(error.payload.code).toBe('INVALID_MESSAGE');
+    expect(error!.payload.code).toBe('INVALID_MESSAGE');
   });
 
   it('audio.end 无 session → 收到 error', async () => {

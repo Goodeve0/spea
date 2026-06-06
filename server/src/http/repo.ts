@@ -2,8 +2,7 @@ import type { Difficulty, Report, StoredSession } from '@speak-coach/shared';
 
 import { prisma } from '../db/prisma';
 import { HttpError } from './errors';
-
-const DAY_MS = 86400000;
+import { computeStreak } from '../lib/calendar';
 
 interface SessionRow {
   id: string;
@@ -134,29 +133,4 @@ export async function computeGrowth(userId: string): Promise<{
   const totalXp = sessions.reduce((sum, s) => sum + Math.max(0, Math.round(s.overallScore || 0)), 0);
   const streak = computeStreak(sessions.map((s) => s.timestamp));
   return { streak, totalXp, sessions };
-}
-
-/** 连续练习天数（从今天或昨天起向前连续的自然日） */
-function computeStreak(timestamps: number[]): number {
-  if (timestamps.length === 0) return 0;
-  const days = new Set(timestamps.map(startOfDay));
-  const today = startOfDay(Date.now());
-  let cursor: number | null = days.has(today)
-    ? today
-    : days.has(today - DAY_MS)
-      ? today - DAY_MS
-      : null;
-  if (cursor === null) return 0;
-  let streak = 0;
-  while (days.has(cursor)) {
-    streak += 1;
-    cursor -= DAY_MS;
-  }
-  return streak;
-}
-
-function startOfDay(ts: number): number {
-  const d = new Date(ts);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
 }
