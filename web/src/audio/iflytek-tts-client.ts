@@ -10,6 +10,7 @@ import { getWsClient } from '../ws-client';
 import { useSettingsStore } from '../store/settings';
 import { DEFAULT_IFLYTEK_VOICE } from './iflytek-voices';
 import type { EngineId, ITtsEngine, TtsSpeakOptions } from './tts-engine';
+import { IFLYTEK_START_TIMEOUT_MS } from './tts-engine';
 
 const SAMPLE_RATE = 16000;
 const INT16_DIVISOR = 0x8000;
@@ -21,6 +22,8 @@ interface ActiveRequest {
   options: TtsSpeakOptions | undefined;
   nextStartAt: number;
   ended: boolean;
+  /** 是否已触发 onStart（首帧入队时置 true，避免重复回调） */
+  started: boolean;
 }
 
 export class IflytekTtsEngine implements ITtsEngine {
@@ -34,6 +37,8 @@ export class IflytekTtsEngine implements ITtsEngine {
   private generation = 0;
   private scheduledSources: AudioBufferSourceNode[] = [];
   private endTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 启动超时计时器：speak 后未在阈值内收到首帧音频则取消会话并通知上层 */
+  private startTimer: ReturnType<typeof setTimeout> | null = null;
 
   speak(text: string, options?: TtsSpeakOptions): void {
     this.stop();
@@ -54,10 +59,35 @@ export class IflytekTtsEngine implements ITtsEngine {
       options,
       nextStartAt: 0,
       ended: false,
+      started: false,
     };
 
     this.ensureSubscription();
     this.ensureAudioContext();
+
+    this.startTimer = setTimeout(() => {
+      if (gen !== this.generation) return;
+      if (!this.active || this.active.requestId !== requestId) return;
+      if (this.active.started) return;
+      this.startTimer = null;
+      ++this.generation;
+      const opts = this.active.options;
+      const wsState = getWsClient().isOpen() ? 'open' : 'closed';
+      console.error(
+        '[IflytekTtsEngine.speak] start timeout, requestId:',
+        requestId,
+        'thresholdMs:',
+        IFLYTEK_START_TIMEOUT_MS,
+        'wsState:',
+        wsState,
+      );
+      this.stopScheduledSources();
+      this.closeAudioContext();
+      this.active = null;
+      const err = new Error('Iflytek TTS start timeout');
+      opts?.onError?.(err);
+      opts?.onEnd?.();
+    }, IFLYTEK_START_TIMEOUT_MS);
 
     // #10 等待 WS 就绪后再发送，避免连接未建立时静默丢消息
     client
@@ -76,6 +106,7 @@ export class IflytekTtsEngine implements ITtsEngine {
         if (!this.active || this.active.requestId !== requestId) return;
         console.error('[IflytekTtsEngine.speak] WS 未就绪:', err);
         this.disabled = true;
+        this.clearStartTimer();
         const e = new Error(`讯飞 TTS 不可用：后端 WS 未连接（${err.message}）。请确认服务端已启动。`);
         const opts = this.active.options;
         this.active = null;
@@ -86,6 +117,7 @@ export class IflytekTtsEngine implements ITtsEngine {
 
   stop(): void {
     ++this.generation;
+    this.clearStartTimer();
     this.clearEndTimer();
     this.stopScheduledSources();
     this.closeAudioContext();
@@ -136,6 +168,13 @@ export class IflytekTtsEngine implements ITtsEngine {
     if (this.endTimer !== null) {
       clearTimeout(this.endTimer);
       this.endTimer = null;
+    }
+  }
+
+  private clearStartTimer(): void {
+    if (this.startTimer !== null) {
+      clearTimeout(this.startTimer);
+      this.startTimer = null;
     }
   }
 
@@ -204,6 +243,7 @@ export class IflytekTtsEngine implements ITtsEngine {
         const err = new Error(`[IflytekTtsEngine] ${payload.code}: ${payload.message}`);
         console.error('[IflytekTtsEngine.handleMessage] tts.error, requestId:', payload.requestId, err);
         const opts = this.active.options;
+        this.clearStartTimer();
         this.active = null;
         if (gen !== this.generation) return;
         opts?.onError?.(err);
@@ -248,6 +288,12 @@ export class IflytekTtsEngine implements ITtsEngine {
     const startAt = Math.max(now, this.active.nextStartAt || now);
     source.start(startAt);
     this.active.nextStartAt = startAt + buffer.duration / rate;
+
+    if (!this.active.started) {
+      this.active.started = true;
+      this.clearStartTimer();
+      this.active.options?.onStart?.();
+    }
   }
 
   private scheduleEnd(gen: number): void {

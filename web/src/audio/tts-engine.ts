@@ -6,10 +6,22 @@
 
 export type EngineId = 'browser' | 'iflytek';
 
+/**
+ * 启动超时阈值。引擎在 speak() 后若超时仍未真实发声（utterance.onstart 或首帧音频入队），
+ * 必须主动 cancel 并触发 onError + onEnd，使上层 UI（readingTurnId 等）能复位，
+ * 避免出现"显示正在朗读但实际无声"的卡死状态。
+ * - 浏览器引擎纯本地，1500ms 足够覆盖正常启动抖动
+ * - 讯飞引擎走 WS，3000ms 覆盖连接 + 首帧返回
+ */
+export const BROWSER_START_TIMEOUT_MS = 1500;
+export const IFLYTEK_START_TIMEOUT_MS = 3000;
+
 export interface TtsSpeakOptions {
   voice?: string;
   /** 播放速度倍率；未传时引擎回退读取 settings.playbackSpeed */
   rate?: number;
+  /** 音频真实开始播放时触发，仅一次。启动超时被取消的会话不会触发。 */
+  onStart?: () => void;
   onEnd?: () => void;
   onError?: (err: Error) => void;
 }
