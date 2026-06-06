@@ -1,0 +1,93 @@
+.cursor/commands/opsx-apply.md
+  ai_agent 1-152
+.cursor/skills/openspec-archive-change/SKILL.md
+  ai_agent 1-114
+.cursor/skills/project-context-design/templates/dimension-decisions.tpl.md
+  ai_agent 1-55
+.cursor/skills/openspec-onboard/SKILL.md
+  ai_agent 1-529
+.cursor/README.md
+  ai_agent 1-56
+.cursor/commands/opsx-onboard.md
+  ai_agent 1-525
+.cursor/skills/project-context-design/templates/dimension-reusable.tpl.md
+  ai_agent 1-66
+.cursor/skills/vercel-react-best-practices/SKILL.md
+  ai_agent 1-180
+.cursor/skills/openspec-continue-change/SKILL.md
+  ai_agent 1-123
+.cursor/skills/project-context-requirements/SKILL.md
+  ai_agent 1-597
+.cursor/skills/split-clarify/SKILL.md
+  ai_agent 1-538
+.cursor/skills/split-plan-check/SKILL.md
+  ai_agent 1-430
+.cursor/rules/spea-workflow.mdc
+  ai_agent 1-42
+.cursor/skills/openspec-new-change/SKILL.md
+  ai_agent 1-75
+.cursor/skills/project-context-design/templates/dimension-architecture.tpl.md
+  ai_agent 1-108
+.cursor/skills/README.md
+  ai_agent 1-255
+.cursor/skills/openspec-sync-specs/SKILL.md
+  ai_agent 1-138
+.cursor/commands/opsx-ff.md
+  ai_agent 1-94
+.cursor/hooks/format-after-edit.sh
+  ai_agent 1-21
+.cursor/skills/project-context-design/templates/dimension-cross-cutting.tpl.md
+  ai_agent 1-129
+.cursor/skills/requirements-clarify/SKILL.md
+  ai_agent 1-304
+.cursor/rules/ai-code-rules.mdc
+  ai_agent 1-151
+.cursor/commands/opsx-explore.md
+  ai_agent 1-173
+.cursor/skills/project-context-design/SKILL.md
+  ai_agent 1-339
+.cursor/hooks.json
+  ai_agent 1-17
+.cursor/skills/openspec-ff-change/SKILL.md
+  ai_agent 1-112
+.cursor/skills/requirements-confirm/SKILL.md
+  ai_agent 1-357
+.cursor/skills/split-confirm/SKILL.md
+  ai_agent 1-406
+.cursor/commands/opsx-verify.md
+  ai_agent 1-164
+.cursor/skills/project-context-design/templates/_index.tpl.md
+  ai_agent 1-105
+.cursor/commands/opsx-new.md
+  ai_agent 1-69
+.cursor/skills/openspec-apply-change/SKILL.md
+  ai_agent 1-156
+.cursor/skills/openspec-verify-change/SKILL.md
+  ai_agent 1-168
+.cursor/commands/opsx-continue.md
+  ai_agent 1-121
+.cursor/skills/openspec-explore/SKILL.md
+  ai_agent 1-290
+.cursor/skills/project-context-design/templates/dimension-dev-patterns.tpl.md
+  ai_agent 1-166
+.cursor/skills/project-context-design/templates/dimension-business-code.tpl.md
+  ai_agent 1-86
+.cursor/commands/opsx-sync.md
+  ai_agent 1-134
+.cursor/commands/opsx-archive.md
+  ai_agent 1-155
+.cursor/skills/design-confirm/SKILL.md
+  ai_agent 1-226
+.cursor/skills/openspec-bulk-archive-change/SKILL.md
+  ai_agent 1-246
+.cursor/commands/opsx-bulk-archive.md
+  ai_agent 1-242
+.cursor/rules/format.mdc
+  ai_agent 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "07a74e7d32a9c4736525eca04ef6653cae71d803",
+  "prompts": {}
+}
