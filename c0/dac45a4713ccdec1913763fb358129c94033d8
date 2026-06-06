@@ -1,0 +1,42 @@
+web/src/audio/speech-synthesis.ts
+  s_87206fd6839359::t_fc6f93e1e20bcb 56
+  s_87206fd6839359::t_1f87ee00700008 7
+web/src/components/SettingsPanel.tsx
+  s_87206fd6839359::t_fcd8c709c7106d 99-120
+  s_87206fd6839359::t_864543ad0b8dc4 5
+  s_87206fd6839359::t_39b054747892ff 17,20
+web/src/audio/iflytek-tts-client.ts
+  s_87206fd6839359::t_24e8b5801945b3 10
+  s_87206fd6839359::t_e5bb2ba6f215f8 205-206,212
+web/src/store/settings.test.ts
+  s_87206fd6839359::t_a95e934ff81b6a 1-17
+web/src/audio/tts-engine.ts
+  s_87206fd6839359::t_e69ee8cdda0d59 11-12
+web/src/store/settings.ts
+  s_87206fd6839359::t_abc7eadce14ec9 10-14,19-26,32,44,47-48,50,55,59,71,75,88-95,103,107,112,122-126
+  s_1f47e0cf58fda7::t_f5aa1853e8466f 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "c0dac45a4713ccdec1913763fb358129c94033d8",
+  "prompts": {},
+  "sessions": {
+    "s_1f47e0cf58fda7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f05548ba-8962-45f1-a70b-aa98a75c553d",
+        "model": "kimi-k2.6"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    },
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
