@@ -35,8 +35,8 @@ export default function Profile() {
       ) : (
         <section className="bg-white rounded-3xl border border-line shadow-card p-8 text-center">
           <Mascot size={80} className="mx-auto mb-4" />
-          <p className="font-bold text-ink mb-1">登录后，进度永久保存</p>
-          <p className="text-sm text-sub mb-5">换设备、换浏览器也能看到你的练习记录与成就</p>
+          <p className="font-bold text-ink mb-1">登录后，瓜田永久保存</p>
+          <p className="text-sm text-sub mb-5">换设备、换浏览器，你的瓜照样在田里等你</p>
           <button
             onClick={() => navigate('/login')}
             className="px-6 py-3 rounded-2xl bg-primary text-white font-extrabold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all"

@@ -71,7 +71,7 @@ export default function Progress() {
         {sessions.length === 0 ? (
           <div className="bg-white rounded-3xl border border-line shadow-card p-8 text-center">
             <div className="text-4xl mb-2">🌱</div>
-            <p className="text-sub text-sm">还没有练习记录，去「练习」开聊第一次吧！</p>
+            <p className="text-sub text-sm">瓜田还空着，去「练习」种下第一颗瓜吧！</p>
           </div>
         ) : (
           <ul className="space-y-2">

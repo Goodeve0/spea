@@ -58,13 +58,14 @@ interface AchievementDef extends Omit<Achievement, 'unlocked'> {
   check: (ctx: AchievementCtx) => boolean;
 }
 
+// 名称走「种瓜得瓜」谐音梗；icon 为无自绘图标场景下的 emoji 兜底
 const ACHIEVEMENTS: AchievementDef[] = [
-  { id: 'first_step', icon: '👶', title: '迈出第一步', desc: '完成第 1 次练习', check: (c) => c.sessions.length >= 1 },
-  { id: 'streak_3', icon: '🔥', title: '小有坚持', desc: '连续练习 3 天', check: (c) => c.streak >= 3 },
-  { id: 'streak_7', icon: '⚡', title: '七日之约', desc: '连续练习 7 天', check: (c) => c.streak >= 7 },
-  { id: 'ten_sessions', icon: '💪', title: '勤学不辍', desc: '累计练习 10 次', check: (c) => c.sessions.length >= 10 },
-  { id: 'high_scorer', icon: '🏆', title: '高光时刻', desc: '单次综合分 ≥ 90', check: (c) => c.sessions.some((s) => s.overallScore >= 90) },
-  { id: 'all_rounder', icon: '🌈', title: '全面发展', desc: '体验 3 种不同场景', check: (c) => new Set(c.sessions.map((s) => s.scenarioId)).size >= 3 },
+  { id: 'first_step', icon: '🌱', title: '呱呱坠地', desc: '完成第 1 次练习', check: (c) => c.sessions.length >= 1 },
+  { id: 'streak_3', icon: '💧', title: '勤浇水', desc: '连续练习 3 天', check: (c) => c.streak >= 3 },
+  { id: 'streak_7', icon: '🌿', title: '瓜藤盘绕', desc: '连续练习 7 天', check: (c) => c.streak >= 7 },
+  { id: 'ten_sessions', icon: '🧺', title: '老瓜熟路', desc: '累计练习 10 次', check: (c) => c.sessions.length >= 10 },
+  { id: 'high_scorer', icon: '🍯', title: '甜度爆表', desc: '单次综合分 ≥ 90', check: (c) => c.sessions.some((s) => s.overallScore >= 90) },
+  { id: 'all_rounder', icon: '🍈', title: '瓜样百出', desc: '体验 3 种不同场景', check: (c) => new Set(c.sessions.map((s) => s.scenarioId)).size >= 3 },
 ];
 
 export function evaluateAchievements(sessions: StoredSession[], streak: number): Achievement[] {

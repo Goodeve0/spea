@@ -82,8 +82,8 @@ export default function ScenarioHub() {
         <Mascot size={104} className="animate-float drop-shadow-sm" />
         <div className="relative mt-4 px-5 py-3 bg-white rounded-3xl shadow-card border border-line max-w-sm">
           <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-line rotate-45" />
-          <p className="text-ink font-bold text-lg leading-snug">Hi! 准备好开口说英语了吗？</p>
-          <p className="text-sub text-sm mt-1">选场景，或聊任意话题 👇</p>
+          <p className="text-ink font-bold text-lg leading-snug">种瓜得瓜，开口呱呱！</p>
+          <p className="text-sub text-sm mt-1">选个场景，或唠任意话题 👇</p>
         </div>
       </div>
 
@@ -114,7 +114,7 @@ export default function ScenarioHub() {
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xl">✨</span>
           <h3 className="font-extrabold text-ink">自由话题</h3>
-          <span className="text-xs text-sub">想聊什么就聊什么</span>
+          <span className="text-xs text-sub">想唠啥瓜就唠啥瓜</span>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
@@ -125,10 +125,10 @@ export default function ScenarioHub() {
             className="flex-1 px-4 py-2.5 rounded-2xl border border-line focus:border-primary focus:ring-2 focus:ring-primary-light outline-none text-sm"
           />
           <button onClick={startFree} className="px-5 py-2.5 bg-primary text-white rounded-2xl font-extrabold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all">
-            开聊 →
+            开瓜 →
           </button>
           <button onClick={startRandom} className="px-4 py-2.5 rounded-2xl font-bold text-sub border border-line hover:text-ink hover:border-primary transition-colors">
-            🎲 随机
+            🎲 随手摘
           </button>
         </div>
       </div>
@@ -167,7 +167,7 @@ export default function ScenarioHub() {
                       </div>
                       <p className="text-sm text-sub leading-relaxed mb-3 min-h-[40px]">{scenario.description}</p>
                       <span className="block w-full text-center bg-primary text-white py-2.5 rounded-2xl font-extrabold border-b-4 border-primary-dark transition-all group-hover:brightness-105 group-active:translate-y-0.5 group-active:border-b-0">
-                        Start →
+                        开瓜 →
                       </span>
                     </div>
                   </button>
