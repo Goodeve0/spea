@@ -66,21 +66,27 @@ export default function Conversation() {
   const initializedRef = useRef(false);
   /** 朗读操作锁，防止重复点击导致多次 speak */
   const readingBusyRef = useRef(false);
+  /** 打断代际：stopSpeaking 时递增，作废旧 speakReply 异步回调 */
+  const interruptEpochRef = useRef(0);
 
-  /** 停止所有正在播放的 TTS（仅停止引擎，不设置状态） */
-  const stopAudio = useCallback(() => {
+  /** 停止全部已注册 TTS 引擎（仅停音频，不改 UI 状态） */
+  const stopAllTts = useCallback(() => {
     getEngine('browser')?.stop();
     getEngine('iflytek')?.stop();
   }, []);
 
   /** 停止所有正在播放的 TTS（用于打断 AI） */
   const stopSpeaking = useCallback(() => {
-    stopAudio();
+    interruptEpochRef.current += 1;
+    stopAllTts();
     setAiSpeaking(false);
     setReadingTurnId(null);
-  }, [stopAudio, setAiSpeaking, setReadingTurnId]);
+    readingBusyRef.current = false;
+  }, [stopAllTts, setAiSpeaking, setReadingTurnId]);
 
   const speakReply = useCallback((turnId: string, text: string, onEnd?: () => void) => {
+    stopAllTts();
+    const speakEpoch = interruptEpochRef.current;
     const settings = useSettingsStore.getState();
     const engineId = settings.ttsEngine;
     const engine = getEngine(engineId) ?? getCurrentEngine();
@@ -89,10 +95,12 @@ export default function Conversation() {
     engine.speak(text, {
       voice: settings.iflytekVoice,
       onEnd: () => {
+        if (speakEpoch !== interruptEpochRef.current) return;
         setReadingTurnId(null);
         onEnd?.();
       },
       onError: (err) => {
+        if (speakEpoch !== interruptEpochRef.current) return;
         console.error('[Conversation.speakReply] tts error, engineId:', engineId, err);
         setReadingTurnId(null);
         if (engineId !== 'iflytek') return;
@@ -102,35 +110,43 @@ export default function Conversation() {
         if (!isVoiceIssue) {
           setIflytekDisabled(true);
         }
+        if (speakEpoch !== interruptEpochRef.current) return;
+        stopAllTts();
+        if (speakEpoch !== interruptEpochRef.current) return;
         // 用浏览器引擎兜底朗读当前句，不打断对话
         setReadingTurnId(turnId);
         getEngine('browser')?.speak(text, {
           onEnd: () => {
+            if (speakEpoch !== interruptEpochRef.current) return;
             setReadingTurnId(null);
             onEnd?.();
           },
         });
       },
     });
-  }, [setReadingTurnId, setIflytekDisabled, setIflytekLastError]);
+  }, [stopAllTts, setReadingTurnId, setIflytekDisabled, setIflytekLastError]);
 
   /** 朗读指定消息（按 turnId 切换播放/停止） */
   const handleReadAloud = useCallback((turnId: string, text: string) => {
-    if (readingBusyRef.current) return; // 操作锁，防重复点击
-    readingBusyRef.current = true;
-
-    // 点击当前正在朗读的消息 → 停止
+    // 点击当前正在朗读的消息 → 停止（不受 busy 锁限制，播放中必须可打断）
     if (readingTurnId === turnId) {
-      stopAudio();
+      interruptEpochRef.current += 1;
+      stopAllTts();
       setReadingTurnId(null);
+      setAiSpeaking(false);
       readingBusyRef.current = false;
       return;
     }
 
+    if (readingBusyRef.current) return;
+    readingBusyRef.current = true;
+
     // 点击其他消息 → 先停掉当前；若 AI 正在自动朗读也一并清掉
     if (readingTurnId) {
-      stopAudio();
+      interruptEpochRef.current += 1;
+      stopAllTts();
       if (isAiSpeaking) setAiSpeaking(false);
+      setReadingTurnId(null);
     }
 
     if (!text.trim()) {
@@ -154,7 +170,7 @@ export default function Conversation() {
         readingBusyRef.current = false;
       },
     });
-  }, [readingTurnId, setReadingTurnId, stopAudio, isAiSpeaking, setAiSpeaking]);
+  }, [readingTurnId, setReadingTurnId, stopAllTts, isAiSpeaking, setAiSpeaking]);
 
   // 初始化
   useEffect(() => {
