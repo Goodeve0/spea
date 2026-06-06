@@ -1,5 +1,7 @@
 /* Speak Coach Service Worker — 离线外壳缓存 */
-const CACHE = 'speak-coach-v1';
+// CACHE 版本号在构建时由 vite.config.ts swVersionPlugin() 注入（格式：speak-coach-<sha>-<date>）
+// 开发模式下保留字面量 __SW_CACHE_VERSION__，SW 不会被注册（vite dev 不复制 public/sw.js 到 dist）
+const CACHE = '__SW_CACHE_VERSION__';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/mascot-icon.svg'];
 
 self.addEventListener('install', (event) => {

@@ -12,6 +12,20 @@ import { WsGateway } from './gateway/ws-gateway';
 import { createHttpApp } from './http/app';
 
 async function bootstrap() {
+  // ── 安全检查：JWT_SECRET 弱密钥 ──────────────────────────────────────────
+  const jwtSecret = process.env.JWT_SECRET;
+  const INSECURE_DEFAULTS = ['please-change-in-prod', 'changeme', 'secret', 'jwt-secret'];
+  if (!jwtSecret) {
+    console.warn(
+      '[security] ⚠️  JWT_SECRET 未设置！将使用不安全的默认值，请在 .env 中配置强随机串。',
+    );
+  } else if (jwtSecret.length < 32 || INSECURE_DEFAULTS.includes(jwtSecret)) {
+    console.warn(
+      `[security] ⚠️  JWT_SECRET 过短或使用了已知的不安全默认值（"${jwtSecret.slice(0, 8)}…"）。` +
+        ' 生产部署前请替换为至少 32 位随机字符串。',
+    );
+  }
+
   const llm = new OpenAILlmClient();
   const dialogService = new DialogService(llm);
   const correctionService = new CorrectionService(llm);
