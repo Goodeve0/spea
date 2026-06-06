@@ -1,0 +1,42 @@
+---
+description: spea 项目工作流 - Spec 先行、TDD、OpenSpec 变更与目录约定
+alwaysApply: true
+---
+
+# spea 项目工作流
+
+**spea** 是 AI 英语口语陪练工具（Node.js WebSocket 后端 + Vite/React 前端）。
+
+## 黄金法则
+
+1. **Spec 先行**：写代码前读 `specs/`（至少 `00-AI-HARNESS.md` + 对应 Feature Spec）
+2. **测试驱动**：Red → Green → Refactor，见 `specs/03-TDD-GUIDE.md`
+3. **小步可控**：一次只做 `specs/04-TASKS.md` 或 OpenSpec change 中的一项任务
+4. **可验证交付**：附测试命令与结果
+
+## 硬约束
+
+- 共享类型只从 `shared/contracts.ts` import
+- 不臆造接口；不引入未在 `specs/02-SDD.md` 登记的依赖
+- 密钥走环境变量（见 `.env.example`）
+- 禁止 `any` / `@ts-ignore`
+
+## OpenSpec 工作流
+
+变更目录：`openspec/changes/`。常用命令（`.cursor/commands/opsx-*.md`）：
+
+| 命令 | 用途 |
+|------|------|
+| `/opsx-new` | 创建变更 |
+| `/opsx-apply` | 按 tasks 实现 |
+| `/opsx-verify` | 验证实现 |
+| `/opsx-archive` | 归档变更 |
+
+Skills 在 `.cursor/skills/`，与 `.claude/skills/` 同步。
+
+## 目录速查
+
+- `server/src/modules/` — 后端业务服务
+- `web/src/audio/` — 音频采集、TTS、ASR
+- `web/src/store/` — Zustand 状态
+- `openspec/` — OpenSpec 工件与主 spec
