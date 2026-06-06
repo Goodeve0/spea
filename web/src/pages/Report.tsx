@@ -153,6 +153,22 @@ export default function Report() {
       {celebrateLevel !== null && (
         <LevelUpCelebration level={celebrateLevel} onClose={() => setCelebrateLevel(null)} />
       )}
+
+      {/* 顶部固定导航栏 */}
+      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-line">
+        <div className="max-w-4xl mx-auto px-4 h-12 flex items-center justify-between">
+          <button
+            onClick={goHome}
+            className="flex items-center gap-1.5 text-sm font-bold text-sub hover:text-ink transition-colors -ml-1 px-2 py-1 rounded-xl hover:bg-canvas"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            返回
+          </button>
+          <span className="font-extrabold text-ink text-sm">练习报告</span>
+          <div className="w-14" /> {/* 占位，标题居中 */}
+        </div>
+      </nav>
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-8 animate-pop-in">
