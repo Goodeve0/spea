@@ -5,6 +5,7 @@ import { getActiveScenario } from '../lib/scenario';
 import type { Scenario, Difficulty } from '@speak-coach/shared';
 
 import { BrowserSpeechRecognition } from '../audio/speech-recognition';
+import { SilenceDetector } from '../audio/silence-detector';
 import { getCurrentEngine, getEngine } from '../audio/tts-engine';
 import { initTtsEngines } from '../audio/tts-init';
 import SettingsPanel from '../components/SettingsPanel';
@@ -32,6 +33,7 @@ export default function Conversation() {
     setSession, addTurn, setRecording,
     isAiSpeaking, setAiSpeaking, currentAiText,
     appendAiText, resetAiText, setReport,
+    readingTurnId, setReadingTurnId,
   } = useSessionStore();
 
   const ttsEngineId = useSettingsStore((s) => s.ttsEngine);
@@ -40,7 +42,8 @@ export default function Conversation() {
 
   const isRecording = useSessionStore((s) => s.isRecording);
   const turns = useSessionStore((s) => s.turns);
-  const [partialText, setPartialText] = useState('');
+  const [recordingPreview, setRecordingPreview] = useState('');
+  const [recordingHasInterim, setRecordingHasInterim] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
@@ -53,25 +56,45 @@ export default function Conversation() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const recogUnsubsRef = useRef<Array<() => void>>([]);
+  const vadUnsubsRef = useRef<Array<() => void>>([]);
+  const silenceDetectorRef = useRef<SilenceDetector | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const pendingTranscriptRef = useRef('');
+  const lastInterimRef = useRef('');
+  const hasSpokenRef = useRef(false);
+  const finishingRef = useRef(false);
   const initializedRef = useRef(false);
+  /** 朗读操作锁，防止重复点击导致多次 speak */
+  const readingBusyRef = useRef(false);
+
+  /** 停止所有正在播放的 TTS（仅停止引擎，不设置状态） */
+  const stopAudio = useCallback(() => {
+    getEngine('browser')?.stop();
+    getEngine('iflytek')?.stop();
+  }, []);
 
   /** 停止所有正在播放的 TTS（用于打断 AI） */
   const stopSpeaking = useCallback(() => {
-    getEngine('browser')?.stop();
-    getEngine('iflytek')?.stop();
+    stopAudio();
     setAiSpeaking(false);
-  }, [setAiSpeaking]);
+    setReadingTurnId(null);
+  }, [stopAudio, setAiSpeaking, setReadingTurnId]);
 
-  const speakReply = useCallback((text: string, onEnd?: () => void) => {
+  const speakReply = useCallback((turnId: string, text: string, onEnd?: () => void) => {
     const settings = useSettingsStore.getState();
     const engineId = settings.ttsEngine;
     const engine = getEngine(engineId) ?? getCurrentEngine();
 
+    setReadingTurnId(turnId);
     engine.speak(text, {
       voice: settings.iflytekVoice,
-      onEnd,
+      onEnd: () => {
+        setReadingTurnId(null);
+        onEnd?.();
+      },
       onError: (err) => {
         console.error('[Conversation.speakReply] tts error, engineId:', engineId, err);
+        setReadingTurnId(null);
         if (engineId !== 'iflytek') return;
 
         setIflytekLastError(err.message);
@@ -80,10 +103,58 @@ export default function Conversation() {
           setIflytekDisabled(true);
         }
         // 用浏览器引擎兜底朗读当前句，不打断对话
-        getEngine('browser')?.speak(text, { onEnd });
+        setReadingTurnId(turnId);
+        getEngine('browser')?.speak(text, {
+          onEnd: () => {
+            setReadingTurnId(null);
+            onEnd?.();
+          },
+        });
       },
     });
-  }, [setIflytekDisabled, setIflytekLastError]);
+  }, [setReadingTurnId, setIflytekDisabled, setIflytekLastError]);
+
+  /** 朗读指定消息（按 turnId 切换播放/停止） */
+  const handleReadAloud = useCallback((turnId: string, text: string) => {
+    if (readingBusyRef.current) return; // 操作锁，防重复点击
+    readingBusyRef.current = true;
+
+    // 点击当前正在朗读的消息 → 停止
+    if (readingTurnId === turnId) {
+      stopAudio();
+      setReadingTurnId(null);
+      readingBusyRef.current = false;
+      return;
+    }
+
+    // 点击其他消息 → 先停掉当前；若 AI 正在自动朗读也一并清掉
+    if (readingTurnId) {
+      stopAudio();
+      if (isAiSpeaking) setAiSpeaking(false);
+    }
+
+    if (!text.trim()) {
+      readingBusyRef.current = false;
+      return;
+    }
+
+    const settings = useSettingsStore.getState();
+    const engine = getEngine(settings.ttsEngine) ?? getCurrentEngine();
+
+    setReadingTurnId(turnId);
+    engine.speak(text, {
+      voice: settings.iflytekVoice,
+      onEnd: () => {
+        setReadingTurnId(null);
+        readingBusyRef.current = false;
+      },
+      onError: (err) => {
+        console.error('[Conversation.handleReadAloud] tts error, turnId:', turnId, err);
+        setReadingTurnId(null);
+        readingBusyRef.current = false;
+      },
+    });
+  }, [readingTurnId, setReadingTurnId, stopAudio, isAiSpeaking, setAiSpeaking]);
 
   // 初始化
   useEffect(() => {
@@ -107,16 +178,21 @@ export default function Conversation() {
       setSession('local-session', scenario.id, difficulty);
 
       generateGreeting(scenario).then((greeting) => {
-        addTurn({ id: `greeting-${Date.now()}`, sessionId: 'local-session', role: 'ai', text: greeting, timestamp: Date.now() });
+        const greetingId = `greeting-${Date.now()}`;
+        addTurn({ id: greetingId, sessionId: 'local-session', role: 'ai', text: greeting, timestamp: Date.now() });
         setAiSpeaking(true);
-        speakReply(greeting, () => setAiSpeaking(false));
+        speakReply(greetingId, greeting, () => setAiSpeaking(false));
       });
     }
 
     return () => {
       recogUnsubsRef.current.forEach((fn) => fn());
       recogUnsubsRef.current = [];
+      vadUnsubsRef.current.forEach((fn) => fn());
+      vadUnsubsRef.current = [];
       recognitionRef.current?.stop();
+      silenceDetectorRef.current?.stop();
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
       getEngine('browser')?.stop();
       getEngine('iflytek')?.stop();
     };
@@ -132,7 +208,7 @@ export default function Conversation() {
   // 自动滚动到底部
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [turns, currentAiText, partialText]);
+  }, [turns, currentAiText, recordingPreview]);
 
   /** 生成开场白 */
   const generateGreeting = async (scenario: Scenario): Promise<string> => {
@@ -148,56 +224,6 @@ export default function Conversation() {
         : "Hi! Let's get started — whenever you're ready, go ahead.")
     );
   };
-
-  /** 开始录音 */
-  const handleStartRecording = useCallback(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition?.isSupported()) {
-      setSpeechSupported(false);
-      setInputMode('text');
-      setNotice('当前浏览器不支持语音识别，已自动切换到文字模式。如需语音，请使用 Chrome。');
-      return;
-    }
-
-    // #3 开始说话前打断 AI 正在播放的语音
-    stopSpeaking();
-
-    // 清理上一轮注册的回调，避免重复累加
-    recogUnsubsRef.current.forEach((fn) => fn());
-    recogUnsubsRef.current = [];
-
-    setPartialText('');
-    setHints(null);
-    setRecording(true);
-
-    const offResult = recognition.onResult((result) => {
-      if (result.isFinal) {
-        setPartialText('');
-        setRecording(false);
-        recognition.stop();
-        handleUserMessage(result.text);
-      } else {
-        setPartialText(result.text);
-      }
-    });
-
-    const offError = recognition.onError((error) => {
-      console.error('Recognition error:', error);
-      setRecording(false);
-      if (error !== 'no-speech' && error !== 'aborted') {
-        setPartialText('');
-      }
-    });
-
-    recogUnsubsRef.current = [offResult, offError];
-    recognition.start();
-  }, [stopSpeaking, setRecording]);
-
-  /** 停止录音 */
-  const handleStopRecording = useCallback(() => {
-    recognitionRef.current?.stop();
-    setRecording(false);
-  }, [setRecording]);
 
   /** 构建发给 LLM 的消息（系统提示 + 最新历史 + 本轮输入） */
   const buildMessages = (scenario: Scenario, userText: string): ChatMessage[] => {
@@ -244,11 +270,11 @@ export default function Conversation() {
       const reply = await streamChat(messages, (chunk) => appendAiText(chunk));
       // 清理掉模型可能残留的 markdown 符号，用于显示与朗读
       const finalReply = stripMarkdown(reply).trim() || "Sorry, I didn't catch that. Could you say it again?";
-
-      addTurn({ id: `ai-${Date.now()}`, sessionId: 'local-session', role: 'ai', text: finalReply, timestamp: Date.now() });
+      const aiTurnId = `ai-${Date.now()}`;
+      addTurn({ id: aiTurnId, sessionId: 'local-session', role: 'ai', text: finalReply, timestamp: Date.now() });
       resetAiText();
 
-      speakReply(finalReply, () => setAiSpeaking(false));
+      speakReply(aiTurnId, finalReply, () => setAiSpeaking(false));
     } catch (err) {
       // #5/#6 把真实错误暴露出来（控制台 + 顶部提示），不再静默双重失败
       const detail = err instanceof Error ? err.message : String(err);
@@ -268,6 +294,140 @@ export default function Conversation() {
     }
   };
 
+  const getCombinedTranscript = (): string => {
+    const pending = pendingTranscriptRef.current.trim();
+    const interim = lastInterimRef.current.trim();
+    if (pending && interim) {
+      return `${pending} ${interim}`;
+    }
+    return pending || interim;
+  };
+
+  const syncRecordingPreview = (): void => {
+    const interim = lastInterimRef.current.trim();
+    setRecordingHasInterim(!!interim);
+    setRecordingPreview(getCombinedTranscript());
+  };
+
+  const cleanupRecordingResources = (): void => {
+    recogUnsubsRef.current.forEach((fn) => fn());
+    recogUnsubsRef.current = [];
+    vadUnsubsRef.current.forEach((fn) => fn());
+    vadUnsubsRef.current = [];
+    recognitionRef.current?.stop();
+    silenceDetectorRef.current?.stop();
+    silenceDetectorRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+  };
+
+  const finishRecording = useCallback(() => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+
+    const text = getCombinedTranscript();
+    cleanupRecordingResources();
+
+    pendingTranscriptRef.current = '';
+    lastInterimRef.current = '';
+    hasSpokenRef.current = false;
+    setRecordingPreview('');
+    setRecordingHasInterim(false);
+    setRecording(false);
+    finishingRef.current = false;
+
+    if (text.trim()) {
+      void handleUserMessage(text);
+    }
+  }, [setRecording]);
+
+  const handleStopRecording = useCallback(() => {
+    finishRecording();
+  }, [finishRecording]);
+
+  const handleStartRecording = useCallback(async () => {
+    const recognition = recognitionRef.current;
+    if (!recognition?.isSupported()) {
+      setSpeechSupported(false);
+      setInputMode('text');
+      setNotice('当前浏览器不支持语音识别，已自动切换到文字模式。如需语音，请使用 Chrome。');
+      return;
+    }
+
+    stopSpeaking();
+
+    cleanupRecordingResources();
+
+    pendingTranscriptRef.current = '';
+    lastInterimRef.current = '';
+    hasSpokenRef.current = false;
+    finishingRef.current = false;
+    setRecordingPreview('');
+    setRecordingHasInterim(false);
+    setHints(null);
+    setRecording(true);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      const detector = new SilenceDetector();
+      silenceDetectorRef.current = detector;
+
+      const offSpeech = detector.onSpeech(() => {
+        hasSpokenRef.current = true;
+      });
+
+      const offSilence = detector.onSilence(() => {
+        finishRecording();
+      });
+
+      vadUnsubsRef.current = [offSpeech, offSilence];
+      detector.start(stream);
+
+      const offResult = recognition.onResult((result) => {
+        if (result.isFinal) {
+          const chunk = result.text.trim();
+          if (chunk) {
+            hasSpokenRef.current = true;
+            pendingTranscriptRef.current = pendingTranscriptRef.current
+              ? `${pendingTranscriptRef.current} ${chunk}`
+              : chunk;
+          }
+          lastInterimRef.current = '';
+          syncRecordingPreview();
+          silenceDetectorRef.current?.resetSilenceTimer();
+        } else if (result.text !== lastInterimRef.current) {
+          lastInterimRef.current = result.text;
+          if (result.text.trim()) {
+            hasSpokenRef.current = true;
+          }
+          syncRecordingPreview();
+          silenceDetectorRef.current?.resetSilenceTimer();
+        }
+      });
+
+      const offError = recognition.onError((error) => {
+        if (error === 'no-speech' || error === 'aborted') {
+          if (error === 'no-speech') {
+            finishRecording();
+          }
+          return;
+        }
+        console.error('[Conversation.handleStartRecording] recognition error:', error);
+        finishRecording();
+      });
+
+      recogUnsubsRef.current = [offResult, offError];
+      recognition.start();
+    } catch (error) {
+      console.error('[Conversation.handleStartRecording] getUserMedia failed:', error);
+      setNotice('无法访问麦克风，请检查权限。');
+      cleanupRecordingResources();
+      setRecording(false);
+    }
+  }, [stopSpeaking, setRecording, finishRecording]);
+
   /** 结束会话，生成报告 */
   const handleEndSession = async () => {
     if (isEnding) return; // 防重复点击导致重复生成报告
@@ -275,7 +435,7 @@ export default function Conversation() {
 
     // 结束会话时立即停止正在播放的语音（生成报告不需要朗读）
     stopSpeaking();
-    recognitionRef.current?.stop();
+    cleanupRecordingResources();
     setRecording(false);
 
     setNotice('正在生成报告…');
@@ -370,22 +530,39 @@ export default function Conversation() {
           {turns.map((turn) => (
             <div
               key={turn.id}
-              className={`flex ${turn.role === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}
+              className={`flex ${turn.role === 'user' ? 'justify-end' : 'justify-start'} items-center gap-2`}
             >
               {turn.role === 'ai' && (
                 <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-xs flex-shrink-0">
                   🤖
                 </div>
               )}
-              <div
-                className={`max-w-[75%] px-4 py-2.5 rounded-2xl ${
-                  turn.role === 'user'
-                    ? 'bg-indigo-600 text-white rounded-br-md'
-                    : 'bg-white text-gray-900 shadow-sm border border-gray-100 rounded-bl-md'
-                }`}
-              >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
-              </div>
+              {turn.role === 'ai' ? (
+                <div className="flex flex-col items-start gap-1 max-w-[75%]">
+                  <div className="px-4 py-2.5 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-100 rounded-bl-md">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
+                  </div>
+                  <button
+                    onClick={() => handleReadAloud(turn.id, turn.text)}
+                    disabled={isLoading}
+                    className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg transition-colors ${
+                      readingTurnId === turn.id
+                        ? 'text-indigo-600 bg-indigo-50'
+                        : isLoading
+                          ? 'text-gray-300 cursor-not-allowed'
+                          : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+                    }`}
+                    title={readingTurnId === turn.id ? '停止朗读' : '朗读'}
+                  >
+                    <span>{readingTurnId === turn.id ? '🔊' : '🔈'}</span>
+                    <span>{readingTurnId === turn.id ? '正在朗读…' : '朗读'}</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-indigo-600 text-white rounded-br-md">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
+                </div>
+              )}
               {turn.role === 'user' && (
                 <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">
                   👤
@@ -396,7 +573,7 @@ export default function Conversation() {
 
           {/* Loading indicator */}
           {isLoading && !currentAiText && (
-            <div className="flex justify-start items-end gap-2">
+            <div className="flex justify-start items-center gap-2">
               <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-xs flex-shrink-0">
                 🤖
               </div>
@@ -412,7 +589,7 @@ export default function Conversation() {
 
           {/* 当前 AI 流式文本 */}
           {currentAiText && (
-            <div className="flex justify-start items-end gap-2">
+            <div className="flex justify-start items-center gap-2">
               <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-xs flex-shrink-0">
                 🤖
               </div>
@@ -425,11 +602,14 @@ export default function Conversation() {
             </div>
           )}
 
-          {/* 识别中间结果 */}
-          {partialText && (
-            <div className="flex justify-end items-end gap-2">
+          {/* 录音中的识别预览（已确认 + 进行中） */}
+          {isRecording && recordingPreview && (
+            <div className="flex justify-end items-center gap-2">
               <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-indigo-100 text-indigo-900 rounded-br-md opacity-70">
-                <p className="text-sm italic">{partialText}...</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {recordingPreview}
+                  {recordingHasInterim && <span className="italic">...</span>}
+                </p>
               </div>
               <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">
                 👤
