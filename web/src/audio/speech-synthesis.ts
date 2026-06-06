@@ -4,6 +4,7 @@
  */
 
 import type { EngineId, ITtsEngine, TtsSpeakOptions } from './tts-engine';
+import { useSettingsStore } from '../store/settings';
 
 export class BrowserSpeechSynthesisEngine implements ITtsEngine {
   readonly id: EngineId = 'browser';
@@ -52,7 +53,7 @@ export class BrowserSpeechSynthesisEngine implements ITtsEngine {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
-    utterance.rate = 1.0;
+    utterance.rate = opts?.rate ?? useSettingsStore.getState().playbackSpeed;
     utterance.pitch = 1.0;
 
     const englishVoice = this.pickEnglishVoice();
