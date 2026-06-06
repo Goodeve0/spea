@@ -4,6 +4,13 @@ dist/
 *.log
 .DS_Store
 coverage/
+*.tsbuildinfo
+
+# 防止 tsc 误将 shared 编译产物落到包根（正常应输出到 shared/dist/）
+shared/contracts.js
+shared/contracts.js.map
+shared/contracts.d.ts
+shared/contracts.d.ts.map
 
 # Prisma 本地 SQLite 数据库
 *.db
