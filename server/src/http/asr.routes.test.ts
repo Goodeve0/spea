@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import type { Server } from 'http';
 
-import { createAsrRouter, type Transcriber } from './asr.routes';
+import { createAsrRouter, cleanSenseVoiceText, type Transcriber } from './asr.routes';
 import { errorMiddleware } from './errors';
 
 let server: Server;
@@ -50,5 +50,13 @@ describe('POST /asr', () => {
       headers: { 'Content-Type': 'audio/wav' },
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('cleanSenseVoiceText', () => {
+  it('去掉情感 emoji 与控制标记', () => {
+    expect(cleanSenseVoiceText('Hello world.😊')).toBe('Hello world.');
+    expect(cleanSenseVoiceText('<|en|><|HAPPY|>Nice to meet you')).toBe('Nice to meet you');
+    expect(cleanSenseVoiceText('  hi   there  ')).toBe('hi there');
   });
 });

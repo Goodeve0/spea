@@ -37,8 +37,21 @@ export function siliconflowTranscriber(): Transcriber {
       throw new HttpError(502, 'ASR_UPSTREAM', `ASR 上游失败 (${res.status}): ${detail.slice(0, 200)}`);
     }
     const data = (await res.json()) as { text?: string };
-    return (data.text ?? '').trim();
+    return cleanSenseVoiceText(data.text ?? '');
   };
+}
+
+/**
+ * 清理 SenseVoice 输出：去掉它附带的情感/事件标记。
+ * SenseVoice 可能返回 <|en|><|HAPPY|><|Speech|> 这类控制标记，以及句尾情感 emoji（😊😡 等），
+ * 这些不应进入对话文本 / 发音评测参考。
+ */
+export function cleanSenseVoiceText(raw: string): string {
+  return raw
+    .replace(/<\|[^|]*\|>/g, '') // <|en|> <|HAPPY|> 等控制标记
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '') // emoji / 符号
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 /**
