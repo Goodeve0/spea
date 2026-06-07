@@ -1,0 +1,34 @@
+web/public/sw.js
+  s_87206fd6839359::t_5680a3d0455301 30-31
+web/src/components/BuddyInviteBanner.tsx
+  s_87206fd6839359::t_94517f5b338328 16
+server/src/http/buddy.routes.ts
+  s_87206fd6839359::t_5ead685f74b45c 138,147-150
+  s_87206fd6839359::t_56e8fbaa67c22f 7
+server/src/http/room-invite.store.ts
+  s_87206fd6839359::t_656d032ba216fe 8,21-26,30,36-52,54,57-62,67
+web/src/store/buddy.ts
+  s_87206fd6839359::t_deafe0d3948a00 208-209,212
+web/src/components/BuddyInboxPoller.tsx
+  s_87206fd6839359::t_195a389e6af344 26
+  s_87206fd6839359::t_0a92f5d38f368c 21
+  s_87206fd6839359::t_42cffdcd6a83da 55-59
+server/src/http/room-invite.store.test.ts
+  s_87206fd6839359::t_84f89e2301e5b8 7,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "80f7179225e7e66b6eed3d793f63c264aab20df9",
+  "prompts": {},
+  "sessions": {
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
