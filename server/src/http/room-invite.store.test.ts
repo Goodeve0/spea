@@ -4,6 +4,7 @@ import {
   INVITE_TTL_MS,
   addRoomInvite,
   clearRoomInvites,
+  peekQueueSize,
   takeRoomInvites,
 } from './room-invite.store';
 
@@ -19,11 +20,13 @@ describe('room-invite.store', () => {
     clearRoomInvites();
   });
 
-  it('takeRoomInvites returns and clears pending invites', () => {
+  it('takeRoomInvites returns pending invites and marks them delivered', () => {
     addRoomInvite('user-b', 'user-a', 'room-1');
     const list = takeRoomInvites('user-b');
     expect(list).toHaveLength(1);
     expect(list[0]?.roomId).toBe('room-1');
+    expect(list[0]?.delivered).toBe(true);
+    // 第二次读取：因首次已标记 delivered，不再返回
     expect(takeRoomInvites('user-b')).toEqual([]);
   });
 
@@ -52,5 +55,32 @@ describe('room-invite.store', () => {
     const list = takeRoomInvites('user-b');
     expect(list).toHaveLength(1);
     expect(list[0]?.roomId).toBe('room-new');
+  });
+
+  it('readd same roomId resets delivered so the next take returns it again', () => {
+    addRoomInvite('user-b', 'user-a', 'room-1');
+    expect(takeRoomInvites('user-b')).toHaveLength(1);
+    expect(takeRoomInvites('user-b')).toEqual([]);
+
+    addRoomInvite('user-b', 'user-a', 'room-1');
+    const list = takeRoomInvites('user-b');
+    expect(list).toHaveLength(1);
+    expect(list[0]?.roomId).toBe('room-1');
+  });
+
+  it('expired invites are not returned even if not yet delivered', () => {
+    addRoomInvite('user-b', 'user-a', 'room-1');
+    vi.advanceTimersByTime(INVITE_TTL_MS + 1);
+    expect(takeRoomInvites('user-b')).toEqual([]);
+  });
+
+  it('peekQueueSize reflects undelivered count without mutating state', () => {
+    expect(peekQueueSize('user-b')).toBe(0);
+    addRoomInvite('user-b', 'user-a', 'room-1');
+    expect(peekQueueSize('user-b')).toBe(1);
+    // peek 不消耗
+    expect(peekQueueSize('user-b')).toBe(1);
+    takeRoomInvites('user-b');
+    expect(peekQueueSize('user-b')).toBe(0);
   });
 });

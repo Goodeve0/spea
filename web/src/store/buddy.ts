@@ -13,7 +13,7 @@ import type {
   StickerKey,
 } from '@speak-coach/shared';
 
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
 import { useAuthStore } from './auth';
 import { useSettingsStore } from './settings';
 
@@ -33,6 +33,8 @@ interface BuddyState {
   encouragements: EncouragementDTO[];
   ranking: RankingEntry[];
   pendingRoomInvites: RoomInviteDTO[];
+  /** 本次会话内已被用户主动 dismiss 的 roomId；服务端短窗口内仍可能再次返回，前端按此屏蔽，防止横幅重弹 */
+  dismissedRoomIds: Set<string>;
   toasts: BuddyToastItem[];
   /** 本次会话内已发出邀请的用户 id（用于在发现列表上显示"已邀请·待接受"） */
   invitedIds: string[];
@@ -79,6 +81,7 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   encouragements: [],
   ranking: [],
   pendingRoomInvites: [],
+  dismissedRoomIds: new Set<string>(),
   toasts: [],
   invitedIds: [],
   loading: false,
@@ -202,7 +205,17 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   sendRoomInvite: async (toUserId, roomId) => {
     const t = token();
     if (!t) return;
-    await api.buddy.sendRoomInvite(t, toUserId, roomId);
+    try {
+      await api.buddy.sendRoomInvite(t, toUserId, roomId);
+    } catch (error) {
+      console.error('[buddy.sendRoomInvite] failed:', { roomId, toUserId }, error);
+      const message =
+        error instanceof ApiError && error.message
+          ? `邀请发送失败：${error.message}`
+          : '邀请发送失败，请重试';
+      get().showToast(message);
+      throw error instanceof Error ? error : new Error('send room invite failed');
+    }
   },
 
   syncProfile: async () => {
@@ -217,14 +230,17 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   },
 
   mergeRoomInvites: (incoming) => {
-    set((s) => ({
-      pendingRoomInvites: mergeRoomInviteList(s.pendingRoomInvites, incoming),
-    }));
+    set((s) => {
+      const filtered = incoming.filter((i) => !s.dismissedRoomIds.has(i.roomId));
+      if (filtered.length === 0) return {};
+      return { pendingRoomInvites: mergeRoomInviteList(s.pendingRoomInvites, filtered) };
+    });
   },
 
   dismissRoomInvite: (roomId) => {
     set((s) => ({
       pendingRoomInvites: s.pendingRoomInvites.filter((i) => i.roomId !== roomId),
+      dismissedRoomIds: new Set([...s.dismissedRoomIds, roomId]),
     }));
   },
 
@@ -242,6 +258,6 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   },
 
   resetInbox: () => {
-    set({ pendingRoomInvites: [], toasts: [] });
+    set({ pendingRoomInvites: [], dismissedRoomIds: new Set<string>(), toasts: [] });
   },
 }));

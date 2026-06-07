@@ -4,7 +4,7 @@ import type { Api, RoomInviteDTO } from '@speak-coach/shared';
 import { asyncHandler, HttpError } from './errors';
 import { requireAuth, type AuthedRequest } from './auth.middleware';
 import * as buddy from './buddy.repo';
-import { addRoomInvite, takeRoomInvites } from './room-invite.store';
+import { addRoomInvite, peekQueueSize, takeRoomInvites } from './room-invite.store';
 
 export const buddyRouter = Router();
 
@@ -122,6 +122,13 @@ buddyRouter.post(
       throw new HttpError(403, 'NOT_BUDDY', '只能邀请瓜友入房');
     }
     addRoomInvite(toUserId, req.userId!, roomId);
+    console.warn(
+      '[buddy.room-invite POST] from=%s to=%s room=%s queueSize=%d',
+      req.userId,
+      toUserId,
+      roomId,
+      peekQueueSize(toUserId),
+    );
     res.json({ ok: true });
   }),
 );
@@ -138,6 +145,12 @@ buddyRouter.get(
       });
     }
     const resp: Api.RoomInviteResp = { invites };
+    console.warn(
+      '[buddy.room-invite GET] user=%s returned=%d remaining=%d',
+      req.userId,
+      invites.length,
+      peekQueueSize(req.userId!),
+    );
     res.json(resp);
   }),
 );
