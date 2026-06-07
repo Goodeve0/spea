@@ -1,0 +1,19 @@
+README.md
+  s_e2c4d363ae0c7c::t_2cda7a11abf0fa 1-192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "de486db115cd428f52eba9712f13d886f4041763",
+  "prompts": {},
+  "sessions": {
+    "s_e2c4d363ae0c7c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dace1a66-cd6e-46d8-9aef-ea0f8ee0e2e8",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/iwn212cjpyff"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
