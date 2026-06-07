@@ -1,0 +1,57 @@
+README.md
+  s_87206fd6839359::t_12aca53e1b9e3c 1-10,12-19,21-43,45-76,79-125,127-210,212-219
+  s_87206fd6839359::t_f817b6891e534b 126
+  s_e2c4d363ae0c7c::t_56e4f537ff38bd 44
+  s_87206fd6839359::t_a38c2bccf385b1 20
+  s_87206fd6839359::t_de08b8833489a2 77-78
+  s_87206fd6839359::t_13eebbc4211593 11
+  s_87206fd6839359::t_a5301275686d62 211
+server/src/http/asr.routes.ts
+  s_e2c4d363ae0c7c::t_8f68769e5babbb 30-32,45
+  s_e2c4d363ae0c7c::t_322534bba5902a 4-5
+shared/transcript-normalize.ts
+  s_e2c4d363ae0c7c::t_fb84a089121231 1-86
+web/src/hooks/useVoiceInput.ts
+  s_e2c4d363ae0c7c::t_ab786858a547a4 8,12-13,19,25-27,29-31,44-50,54-55,65-72,82,94-97,115-116,120-124,152-153,156,174-176,211-212,216,252-253,255,257,260-267,299
+openspec/specs/voice-input-transcript/spec.md
+  s_87206fd6839359::t_7c6bc03932e5d1 1-104
+shared/contracts.ts
+  s_e2c4d363ae0c7c::t_977c9b153a1c75 665-666
+web/src/hooks/useVoiceInput.test.ts
+  s_e2c4d363ae0c7c::t_e8a6f109a57a8e 105,119-120
+  s_e2c4d363ae0c7c::t_de62341991f945 1-13,23,48,55,58-59,61-104,106-118,121-156,158-167,170-180,182-223
+  s_e2c4d363ae0c7c::t_21a2fa9c3be54d 157,168-169,181
+  s_e2c4d363ae0c7c::t_555352f700fde4 14-22,24-47,49-54,56-57,60
+shared/transcript-normalize.test.ts
+  s_e2c4d363ae0c7c::t_85d827ca19c151 1-52
+server/src/http/asr.routes.test.ts
+  s_e2c4d363ae0c7c::t_98f09b650659a3 65-88
+  s_e2c4d363ae0c7c::t_5d74a7ff186a78 5-6
+web/src/pages/Conversation.tsx
+  s_e2c4d363ae0c7c::t_9d0b35c9aead9c 277
+  s_e2c4d363ae0c7c::t_600dd8cf0624b3 636-637,641-649
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "e14fc4a0ecdfc6ff35a5a9171c6891bf1f26948b",
+  "prompts": {},
+  "sessions": {
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    },
+    "s_e2c4d363ae0c7c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dace1a66-cd6e-46d8-9aef-ea0f8ee0e2e8",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/iwn212cjpyff"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
