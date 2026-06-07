@@ -1,0 +1,31 @@
+scripts/backup-db.sh
+  s_8ea735aed46668::t_ca7c55654f4cc6 1
+  s_8ea735aed46668::t_b187304b330d64 46
+  s_8ea735aed46668::t_3a1be1fdf9858f 56
+web/src/audio/speech-synthesis.test.ts
+  s_8ea735aed46668::t_4204a0b5203758 57-58
+scripts/migrate-db-volume-to-bind.sh
+  s_8ea735aed46668::t_25aa34391a7660 87
+  s_8ea735aed46668::t_b5a11437453fb5 1
+  s_8ea735aed46668::t_47e8ed32208b49 95
+  s_8ea735aed46668::t_1a1743837ca848 37
+web/src/ws-client/index.ts
+  s_8ea735aed46668::t_6a21ccd8324e35 12-13,17,20
+  s_8ea735aed46668::t_638a1ed8e13e9c 14-16,18-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "700c74c580ea9478301fabe773bb5159f8d2a000",
+  "prompts": {},
+  "sessions": {
+    "s_8ea735aed46668": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "45b5f341-1729-4fa8-8281-908385e5d986",
+        "model": "global.anthropic.claude-opus-4-7"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
