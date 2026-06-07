@@ -10,6 +10,7 @@ import type { Difficulty, RoomMember, ServerPayload, WsMessage } from '@speak-co
 
 import { getWsClient } from '../ws-client';
 import { useAuthStore } from '../store/auth';
+import { useBuddyStore } from '../store/buddy';
 import { useSettingsStore } from '../store/settings';
 import { BrowserSpeechRecognition } from '../audio/speech-recognition';
 import { SilenceDetector } from '../audio/silence-detector';
@@ -104,12 +105,10 @@ export default function LiveRoom() {
           const p = msg.payload as ServerPayload.RoomCreated;
           setRoomId(p.roomId);
           window.history.replaceState(null, '', `/room/${p.roomId}`);
-          // 创建后邀请指定瓜友
+          // 创建后邀请指定瓜友（成功/失败由 store 内部统一处理 toast/log）
           const inviteUserIdFromState = (location.state as { inviteUserId?: string } | null)?.inviteUserId;
           if (inviteUserIdFromState) {
-            import('../api/client').then(({ api }) => {
-              void api.buddy.sendRoomInvite(token, inviteUserIdFromState, p.roomId);
-            });
+            void useBuddyStore.getState().sendRoomInvite(inviteUserIdFromState, p.roomId);
           }
           setStatus('waiting');
           break;
