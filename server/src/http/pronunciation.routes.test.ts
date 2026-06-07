@@ -46,10 +46,16 @@ afterAll(async () => {
 });
 
 function postPcm(query: string, body: Uint8Array | null) {
+  let blob: Blob | undefined;
+  if (body) {
+    const ab = new ArrayBuffer(body.length);
+    new Uint8Array(ab).set(body);
+    blob = new Blob([ab]);
+  }
   return fetch(`${base}/pronunciation/assess${query}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/octet-stream' },
-    body: body ?? undefined,
+    body: blob,
   });
 }
 

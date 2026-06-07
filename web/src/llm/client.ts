@@ -66,6 +66,26 @@ async function readErrorBody(response: Response): Promise<string> {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * 带 429 退避重试的 fetch：上游限流（rate limit reached for RPM）时自动等待重试，
+ * 把瞬时限流对用户隐藏。最多重试 MAX_RETRIES 次，指数退避 + 抖动。
+ */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const MAX_RETRIES = 2;
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const res = await fetch(url, init);
+    if (res.status !== 429 || attempt >= MAX_RETRIES) return res;
+    attempt += 1;
+    const backoff = 700 * 2 ** (attempt - 1) + Math.random() * 400;
+    console.warn(`[llm] 429 限流，第 ${attempt} 次退避重试，等待 ${Math.round(backoff)}ms`);
+    await sleep(backoff);
+  }
+}
+
 /**
  * 流式对话：逐 token 回调 onToken，返回完整文本。
  * 失败时抛出带 HTTP 状态码与上游响应片段的 Error。
@@ -77,7 +97,7 @@ export async function streamChat(
 ): Promise<string> {
   const target = resolveTarget();
 
-  const response = await fetch(target.url, {
+  const response = await fetchWithRetry(target.url, {
     method: 'POST',
     headers: target.headers,
     body: JSON.stringify({
@@ -140,7 +160,7 @@ export async function streamChat(
 export async function chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
   const target = resolveTarget();
 
-  const response = await fetch(target.url, {
+  const response = await fetchWithRetry(target.url, {
     method: 'POST',
     headers: target.headers,
     body: JSON.stringify({

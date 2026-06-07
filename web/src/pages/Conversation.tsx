@@ -264,6 +264,7 @@ export default function Conversation() {
     isSupported: speechSupported,
     recordingPreview,
     recordingHasInterim,
+    isTranscribing,
     startRecording: startVoice,
     stopRecording: stopVoice,
     cleanup: cleanupVoice,
@@ -720,8 +721,9 @@ export default function Conversation() {
         {/* Status */}
         <div className="text-center text-xs text-gray-400 pb-1 h-5 mt-1">
           {isRecording && '🔴 Listening...'}
-          {isAiSpeaking && !isRecording && !isLoading && '🔊 AI is speaking...'}
-          {isLoading && !isRecording && '💭 Thinking...'}
+          {isTranscribing && !isRecording && '🧠 识别中…'}
+          {isAiSpeaking && !isRecording && !isLoading && !isTranscribing && '🔊 AI is speaking...'}
+          {isLoading && !isRecording && !isTranscribing && '💭 Thinking...'}
         </div>
       </div>
 
