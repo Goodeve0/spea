@@ -1,4 +1,5 @@
-# 一键起后端（账号/数据 HTTP + 对话 WS），SQLite 持久化到命名卷。
+# 一键起后端（账号/数据 HTTP + 对话 WS），SQLite 持久化到宿主机 bind mount。
+# 数据库文件落在 /srv/speakcoach/db/，备份在 /srv/speakcoach/backups/，详见 DEPLOY.md §8。
 # 变量从根 .env 读取（compose 自动加载根目录 .env 做插值）。
 # 用法：docker compose up -d --build
 
@@ -12,7 +13,7 @@ services:
       - "3001:3001" # WS（对话/TTS/ASR）
       - "3002:3002" # HTTP API（账号/数据）
     environment:
-      # 数据库：SQLite 文件落在挂载卷，重启不丢
+      # 数据库：SQLite 文件落在宿主机 bind mount 目录，重启 / 卷清理均不丢
       DATABASE_URL: "file:/data/app.db"
       JWT_SECRET: "${JWT_SECRET:-please-change-in-prod}"
       HTTP_PORT: "3002"
@@ -27,7 +28,4 @@ services:
       XFYUN_API_KEY: "${XFYUN_API_KEY}"
       XFYUN_API_SECRET: "${XFYUN_API_SECRET}"
     volumes:
-      - speakcoach-db:/data
-
-volumes:
-  speakcoach-db:
+      - /srv/speakcoach/db:/data
