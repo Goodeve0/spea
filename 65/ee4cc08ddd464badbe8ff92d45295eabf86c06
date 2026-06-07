@@ -1,0 +1,22 @@
+web/src/pages/Conversation.tsx
+  s_8ea735aed46668::t_b7f834e9438f81 91-97,99-115,117-119,121-141
+  s_8ea735aed46668::t_822efa343bf32c 274-294
+web/.env.production
+  s_8ea735aed46668::t_bd46bee5d7af18 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "65ee4cc08ddd464badbe8ff92d45295eabf86c06",
+  "prompts": {},
+  "sessions": {
+    "s_8ea735aed46668": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "45b5f341-1729-4fa8-8281-908385e5d986",
+        "model": "global.anthropic.claude-opus-4-7"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
