@@ -1,9 +1,4 @@
-# buddy-interaction Specification
-
-## Purpose
-定义瓜友贴纸与双排邀请的双向 UI 交互：全局通知、发送反馈、房间邀请横幅、约一把流程与轮询行为。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 登录用户全局轮询瓜友通知
 
@@ -40,46 +35,6 @@
 
 - **WHEN** 轮询请求 reject（如断网）或返回 5xx
 - **THEN** 控制台输出 `console.warn` 记录错误对象，UI 不弹 toast，下一周期照常重试
-
-### Requirement: 接收贴纸时展示全局 Toast
-
-当轮询返回的 `encouragements` 中存在 `read === false` 的条目时，系统 SHALL 弹出全局 toast，文案 MUST 包含发送方昵称与贴纸 label（来自 `STICKERS` 元数据）。Toast MUST 约 **3 秒**后自动消失；同一会话内同一 `encouragement.id` MUST NOT 重复弹出。
-
-Toast 展示 MUST NOT 阻塞用户当前操作（对话、练习、导航）。
-
-#### Scenario: 收到瓜友贴纸
-
-- **WHEN** 瓜友 A 向用户 B 发送贴纸且 B 的轮询返回该条 `read === false`
-- **THEN** B 的屏幕显示 toast，含 A 的 displayName 与贴纸 label（如「cc 给你发了「干得漂亮」」）
-
-#### Scenario: 同一条贴纸不重复 toast
-
-- **WHEN** 同一条 encouragement 已在当前会话展示过 toast
-- **THEN** 后续轮询不再对该 id 弹出 toast
-
-#### Scenario: 练习中可关闭贴纸 toast
-
-- **WHEN** 用户在 `/room/:id` 或 `/conversation` 收到贴纸 toast
-- **THEN** toast 正常显示且用户 MAY 点击关闭，不中断当前练习流程
-
-### Requirement: 发送贴纸时提供即时反馈
-
-用户在「我的瓜友」选择贴纸并发送时，系统 MUST 调用 `POST /buddy/encouragements`。成功时 SHALL 显示 toast「已发送给 {displayName}」；失败时 MUST 显示「发送失败，请重试」或等价错误提示。仅瓜友之间可发送（沿用后端 `NOT_BUDDY` 校验）。
-
-#### Scenario: 发送成功
-
-- **WHEN** 用户向瓜友 cc 发送 stickerKey `nice_job` 且 API 返回成功
-- **THEN** 页面显示「已发送给 cc」toast，贴纸选择 UI 关闭
-
-#### Scenario: 发送失败
-
-- **WHEN** 用户发送贴纸但 API 返回错误或网络失败
-- **THEN** 页面显示失败提示，用户 MAY 重试
-
-#### Scenario: 非瓜友不可发送
-
-- **WHEN** 用户尝试向非瓜友用户发送贴纸
-- **THEN** 后端拒绝且前端显示失败提示（不静默失败）
 
 ### Requirement: 全局展示双排房间邀请横幅
 
@@ -171,12 +126,3 @@ Toast 展示 MUST NOT 阻塞用户当前操作（对话、练习、导航）。
 
 - **WHEN** `POST /buddy/room-invite` 返回 2xx
 - **THEN** 服务端访问日志 MUST 含 fromUserId / toUserId / roomId 与当前 `(toUserId, roomId)` 的待 deliver 队列大小，便于在生产即时核查送达链路
-
-### Requirement: 仅瓜友可触发贴纸与约一把
-
-贴纸发送与房间邀请 MUST 满足后端 `areBuddies` 校验；前端 MUST NOT 对非瓜友展示可用「发贴纸」「约一把」（种子用户约一把除外为 disabled）。
-
-#### Scenario: 瓜友关系校验
-
-- **WHEN** 用户尝试向非瓜友发送 room-invite
-- **THEN** API 返回 403 NOT_BUDDY，前端不展示成功态
