@@ -54,7 +54,8 @@ describe('BrowserSpeechSynthesisEngine', () => {
       },
     );
 
-    speakFn = vi.fn(() => {
+    speakFn = vi.fn();
+    speakFn.mockImplementation(() => {
       (globalThis as { speechSynthesis: { speaking: boolean } }).speechSynthesis.speaking = true;
     });
     vi.stubGlobal('speechSynthesis', {

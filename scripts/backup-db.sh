@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # backup-db.sh
 # 定时备份 SQLite 数据库：sqlite3 .backup 在线一致快照 + 完整性校验 + 滚动保留。
 #
@@ -43,7 +43,7 @@ sqlite3 "$SRC" ".backup '$DAY_BACKUP'"
 
 # ===== 二次完整性校验 =====
 RESULT="$(sqlite3 "$DAY_BACKUP" 'PRAGMA integrity_check;')"
-if [[ "$RESULT" != "ok" ]]; then
+if [ "$RESULT" != "ok" ]; then
   err "新备份 integrity_check 失败：$RESULT"
   rm -f "$DAY_BACKUP"
   exit 1
@@ -53,7 +53,7 @@ SIZE_BYTES="$(stat -c %s "$DAY_BACKUP" 2>/dev/null || stat -f %z "$DAY_BACKUP")"
 log "ok size=${SIZE_BYTES}B"
 
 # ===== 周日额外打 weekly 副本 =====
-if [[ "$(date +%u)" == "7" ]]; then
+if [ "$(date +%u)" = "7" ]; then
   WEEK_BACKUP="$DST_DIR/weekly-$TS.db"
   cp "$DAY_BACKUP" "$WEEK_BACKUP"
   log "周日 weekly 副本：$WEEK_BACKUP"

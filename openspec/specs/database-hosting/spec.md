@@ -4,7 +4,6 @@
 约定 SQLite 数据库文件 `app.db` 在生产服务器的持久化位置、迁移流程、定时备份与灾难恢复策略，确保运维误操作（如删除 docker 命名卷）不会丢失账号、对话历史、瓜友、成长记录等业务数据。
 
 ## Requirements
-
 ### Requirement: 数据库文件持久化在服务器线上目录
 
 `app.db` 文件 MUST 存放在服务器宿主机的固定持久化目录（约定为 `/srv/speakcoach/db/app.db`），并通过 docker bind mount 映射到容器内 `/data/app.db`。该目录 MUST 在删除 `docker compose down -v`、重建容器、删除 docker volume 等运维动作时**不被销毁**。生产环境 MUST NOT 再使用 docker 命名卷 `speakcoach-db` 作为唯一持久化位置。
