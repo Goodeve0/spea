@@ -4,7 +4,7 @@ import type { Api, RoomInviteDTO } from '@speak-coach/shared';
 import { asyncHandler, HttpError } from './errors';
 import { requireAuth, type AuthedRequest } from './auth.middleware';
 import * as buddy from './buddy.repo';
-import { addRoomInvite, peekQueueSize, takeRoomInvites } from './room-invite.store';
+import { addRoomInvite, markRoomInvitesDelivered, peekQueueSize, peekRoomInvites } from './room-invite.store';
 
 export const buddyRouter = Router();
 
@@ -135,7 +135,7 @@ buddyRouter.post(
 buddyRouter.get(
   '/buddy/room-invite',
   asyncHandler(async (req: AuthedRequest, res) => {
-    const raw = takeRoomInvites(req.userId!);
+    const raw = peekRoomInvites(req.userId!);
     const invites: RoomInviteDTO[] = [];
     for (const inv of raw) {
       invites.push({
@@ -144,6 +144,10 @@ buddyRouter.get(
         createdAt: inv.createdAt,
       });
     }
+    markRoomInvitesDelivered(
+      req.userId!,
+      invites.map((i) => i.roomId),
+    );
     const resp: Api.RoomInviteResp = { invites };
     console.warn(
       '[buddy.room-invite GET] user=%s returned=%d remaining=%d',

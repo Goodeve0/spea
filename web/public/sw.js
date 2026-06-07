@@ -27,6 +27,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   // 仅处理同源静态资源；跨域的后端 API / LLM 代理不缓存、不拦截
   if (url.origin !== self.location.origin) return;
+  // 同源 API（如 /api/buddy/room-invite 轮询）必须走网络，禁止 SW 缓存空响应导致邀请丢失
+  if (url.pathname.startsWith('/api/')) return;
 
   // 页面导航：network-first，离线回退到缓存的外壳（保证离线可打开）
   if (req.mode === 'navigate') {

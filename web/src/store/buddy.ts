@@ -205,8 +205,11 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   sendRoomInvite: async (toUserId, roomId) => {
     const t = token();
     if (!t) return;
+    const name =
+      get().buddies.find((b) => b.card.userId === toUserId)?.card.displayName ?? '瓜友';
     try {
       await api.buddy.sendRoomInvite(t, toUserId, roomId);
+      get().showToast(`已发送邀请给 ${name}`);
     } catch (error) {
       console.error('[buddy.sendRoomInvite] failed:', { roomId, toUserId }, error);
       const message =

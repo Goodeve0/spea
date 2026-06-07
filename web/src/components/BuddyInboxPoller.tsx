@@ -18,10 +18,12 @@ export default function BuddyInboxPoller() {
   const showToast = useBuddyStore((s) => s.showToast);
   const resetInbox = useBuddyStore((s) => s.resetInbox);
   const shownEncouragementIdsRef = useRef(new Set<string>());
+  const shownInviteRoomIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!user) {
       shownEncouragementIdsRef.current.clear();
+      shownInviteRoomIdsRef.current.clear();
       didLogout401 = false;
       resetInbox();
       return;
@@ -50,6 +52,11 @@ export default function BuddyInboxPoller() {
 
         if (invResult.invites.length > 0) {
           mergeRoomInvites(invResult.invites);
+          for (const inv of invResult.invites) {
+            if (shownInviteRoomIdsRef.current.has(inv.roomId)) continue;
+            shownInviteRoomIdsRef.current.add(inv.roomId);
+            showToast(`${inv.from.displayName} 邀请你双排练习`);
+          }
         }
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
