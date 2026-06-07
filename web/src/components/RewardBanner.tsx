@@ -30,7 +30,7 @@ export default function RewardBanner({
 
       <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm font-bold">
         <span className="px-3 py-1 rounded-full bg-white/20 flex items-center gap-1"><BoltIcon size={14} className="text-white" />+{gainedXp} XP</span>
-        <span className="px-3 py-1 rounded-full bg-white/20 flex items-center gap-1"><MelonIcon size={14} /> 连击 {streak} 天</span>
+        <span className="px-3 py-1 rounded-full bg-white/20 flex items-center gap-1"><MelonIcon size={14} /> 连续 {streak} 天</span>
         <span className="px-3 py-1 rounded-full bg-white/20">Lv.{after.level}</span>
       </div>
 

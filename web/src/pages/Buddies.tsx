@@ -47,7 +47,7 @@ function CardHeader({ card }: { card: BuddyCardT }) {
         </div>
         <div className="text-xs text-sub mt-0.5 flex items-center gap-2">
           <span className="px-1.5 py-0.5 rounded bg-primary-light text-primary-dark font-bold">
-            {card.cefr ?? '评估中'}
+            {card.cefr ?? '暂无评级'}
           </span>
           <span>本周练 {card.weeklyPracticeCount} 次</span>
         </div>
@@ -74,7 +74,7 @@ export default function Buddies() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const {
-    matches, requests, buddies, ranking,
+    matches, requests, buddies, ranking, invitedIds,
     loadAll, invite, accept, decline, removeBuddy, sendSticker, sendRoomInvite,
   } = useBuddyStore();
 
@@ -192,7 +192,7 @@ export default function Buddies() {
                     <UserAvatar avatarKey={(req.from.avatarKey as AvatarKey) ?? 'melon'} size={40} />
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-ink truncate">{req.from.displayName}</div>
-                      <div className="text-xs text-sub">{req.from.cefr ?? '评估中'} · 想和你做瓜友</div>
+                      <div className="text-xs text-sub">{req.from.cefr ?? '暂无评级'} · 想和你做瓜友</div>
                     </div>
                     <button onClick={() => void accept(req.requestId)} className="px-3 py-1.5 bg-primary text-white rounded-xl text-sm font-bold">接受</button>
                     <button onClick={() => void decline(req.requestId)} className="px-3 py-1.5 bg-canvas text-sub rounded-xl text-sm">拒绝</button>
@@ -208,20 +208,29 @@ export default function Buddies() {
               <p className="text-sub text-sm">暂时没有匹配到合适的瓜友，过会儿再来看看～</p>
             </div>
           ) : (
-            matches.map((card) => (
-              <div key={card.userId} className="bg-white rounded-2xl border border-line shadow-card p-4">
-                <CardHeader card={card} />
-                <ScenarioChips ids={card.topScenarios} />
-                <div className="mt-3 flex justify-end">
-                  <button
-                    onClick={() => void invite(card.userId)}
-                    className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold border-b-2 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all"
-                  >
-                    邀请成为瓜友
-                  </button>
+            matches.map((card) => {
+              const invited = invitedIds.includes(card.userId);
+              return (
+                <div key={card.userId} className="bg-white rounded-2xl border border-line shadow-card p-4">
+                  <CardHeader card={card} />
+                  <ScenarioChips ids={card.topScenarios} />
+                  <div className="mt-3 flex justify-end">
+                    {invited ? (
+                      <span className="px-4 py-2 bg-success/10 text-success rounded-xl text-sm font-bold flex items-center gap-1">
+                        ✅ 已邀请·待对方接受
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => void invite(card.userId)}
+                        className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold border-b-2 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all"
+                      >
+                        邀请成为瓜友
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

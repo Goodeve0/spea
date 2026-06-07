@@ -2,15 +2,19 @@ import { useEffect, useState } from 'react';
 import type { StoredSession } from '@speak-coach/shared';
 
 import AchievementWall from '../components/AchievementWall';
+import BadgeDetailModal from '../components/BadgeDetailModal';
 import { AchievementIcon, TargetIcon, MelonIcon } from '../components/icons';
 import { loadGrowth } from '../store/growth';
 import { useAuthStore } from '../store/auth';
-import { evaluateAchievements, todayDone } from '../lib/gamification';
+import { evaluateAchievements, todayDone, type Achievement } from '../lib/gamification';
+import { loadEarnedTimes, syncEarnedTimes } from '../lib/achievements-store';
 
 export default function Achievements() {
   const user = useAuthStore((s) => s.user);
   const [streak, setStreak] = useState(0);
   const [sessions, setSessions] = useState<StoredSession[]>([]);
+  const [earnedTimes, setEarnedTimes] = useState<Record<string, number>>({});
+  const [selected, setSelected] = useState<Achievement | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -18,10 +22,21 @@ export default function Achievements() {
       if (!alive) return;
       setStreak(g.streak);
       setSessions(g.sessions);
+      // 记录已解锁徽章的获得时间（首次进入即记录，便于展示获得时间）
+      const unlockedIds = evaluateAchievements(g.sessions, g.streak)
+        .filter((a) => a.unlocked)
+        .map((a) => a.id);
+      const { earnedTimes: et } = syncEarnedTimes(unlockedIds, user?.id);
+      setEarnedTimes(et);
     });
     return () => {
       alive = false;
     };
+  }, [user]);
+
+  // user 变化时先用已存的获得时间兜底
+  useEffect(() => {
+    setEarnedTimes(loadEarnedTimes(user?.id));
   }, [user]);
 
   const achievements = evaluateAchievements(sessions, streak);
@@ -43,12 +58,12 @@ export default function Achievements() {
         {done ? (
           <>
             <TargetIcon size={16} className="text-success" />
-            今日已完成 · <MelonIcon size={14} /> 连击 {streak} 天
+            今日已完成 · <MelonIcon size={14} /> 连续 {streak} 天
           </>
         ) : (
           <>
             <TargetIcon size={16} className="text-ink" />
-            今日目标：完成 1 次练习，点亮连击
+            今日目标：完成 1 次练习，点亮连续
           </>
         )}
       </div>
@@ -61,8 +76,16 @@ export default function Achievements() {
             {unlocked} / {achievements.length} 已解锁
           </span>
         </div>
-        <AchievementWall achievements={achievements} />
+        <AchievementWall achievements={achievements} onSelect={setSelected} />
       </section>
+
+      {selected && (
+        <BadgeDetailModal
+          achievement={selected}
+          earnedAt={earnedTimes[selected.id]}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

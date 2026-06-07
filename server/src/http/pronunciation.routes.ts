@@ -44,11 +44,9 @@ export function createPronunciationRouter(
         throw new HttpError(400, 'BAD_REQUEST', 'PCM body is empty');
       }
 
-      // Buffer → ArrayBuffer（精确切片，避免共享底层 buffer 多余字节）
-      const arrayBuffer = body.buffer.slice(
-        body.byteOffset,
-        body.byteOffset + body.byteLength,
-      );
+      // Buffer → 独立 ArrayBuffer（复制，确保类型为 ArrayBuffer 而非 ArrayBufferLike）
+      const arrayBuffer = new ArrayBuffer(body.byteLength);
+      new Uint8Array(arrayBuffer).set(body);
 
       const result = await service.assess(arrayBuffer, referenceText);
       res.json({ ...result, turnId });

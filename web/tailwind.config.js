@@ -43,6 +43,11 @@ export default {
           '0%': { opacity: '1', transform: 'translateY(-12vh) rotate(0deg)' },
           '100%': { opacity: '0', transform: 'translateY(110vh) rotate(360deg)' },
         },
+        'badge-bounce': {
+          '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+          '25%': { transform: 'translateY(-6px) rotate(-6deg)' },
+          '75%': { transform: 'translateY(-3px) rotate(6deg)' },
+        },
       },
       animation: {
         'pop-in': 'pop-in 0.4s ease-out both',
@@ -50,6 +55,7 @@ export default {
         celebrate: 'celebrate 0.6s ease-out both',
         'melon-burst': 'melon-burst 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both',
         'confetti-fall': 'confetti-fall 2.6s linear forwards',
+        'badge-bounce': 'badge-bounce 1.6s ease-in-out infinite',
       },
     },
   },

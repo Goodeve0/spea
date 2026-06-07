@@ -45,48 +45,68 @@ export async function submitSession(
     return; // 幂等：已存在则跳过
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.session.create({
-      data: {
-        id: session.id,
-        userId,
-        scenarioId: session.scenarioId,
-        difficulty: session.difficulty,
-        overallScore: session.overallScore,
-        cefrEstimate: session.cefrEstimate ?? null,
-        hasUserSpeech: true,
-        timestamp: BigInt(session.timestamp),
-        radar: JSON.stringify(session.radar),
-      },
-    });
-
-    if (report) {
-      await tx.report.create({
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.session.create({
         data: {
-          sessionId: session.id,
+          id: session.id,
           userId,
-          radar: JSON.stringify(report.radar),
-          topErrors: JSON.stringify(report.topErrors),
-          expressionUpgrades: JSON.stringify(report.expressionUpgrades),
-          recasts: JSON.stringify(report.recasts),
-          summaryText: report.summaryText,
-          cefrEstimate: report.cefrEstimate ?? null,
+          scenarioId: session.scenarioId,
+          difficulty: session.difficulty,
+          overallScore: session.overallScore,
+          cefrEstimate: session.cefrEstimate ?? null,
+          hasUserSpeech: true,
+          timestamp: BigInt(session.timestamp),
+          radar: JSON.stringify(session.radar),
         },
       });
 
-      const turns = report.annotatedTurns ?? [];
-      if (turns.length > 0) {
-        await tx.turn.createMany({
-          data: turns.map((t) => ({
+      if (report) {
+        await tx.report.create({
+          data: {
             sessionId: session.id,
-            role: t.role,
-            text: t.text,
-            ts: BigInt(t.timestamp ?? Date.now()),
-          })),
+            userId,
+            radar: JSON.stringify(report.radar),
+            topErrors: JSON.stringify(report.topErrors),
+            expressionUpgrades: JSON.stringify(report.expressionUpgrades),
+            recasts: JSON.stringify(report.recasts),
+            summaryText: report.summaryText,
+            cefrEstimate: report.cefrEstimate ?? null,
+          },
         });
+
+        const turns = report.annotatedTurns ?? [];
+        if (turns.length > 0) {
+          await tx.turn.createMany({
+            data: turns.map((t) => ({
+              sessionId: session.id,
+              role: t.role,
+              text: t.text,
+              ts: BigInt(t.timestamp ?? Date.now()),
+            })),
+          });
+        }
       }
+    });
+  } catch (e) {
+    // 并发幂等：findUnique 与 create 之间存在竞态窗口，
+    // 双跑 effect / 网络重试可能同时创建同一 id，第二个会撞唯一约束(P2002)。
+    // 此时视为已成功写入（幂等），不再当作错误。
+    if (isUniqueConstraintError(e)) {
+      return;
     }
-  });
+    throw e;
+  }
+}
+
+/** 判断是否为 Prisma 唯一约束冲突（P2002） */
+function isUniqueConstraintError(e: unknown): boolean {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    'code' in e &&
+    (e as { code?: string }).code === 'P2002'
+  );
 }
 
 /** 列出某用户的历史会话（时间倒序） */

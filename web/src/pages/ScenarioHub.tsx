@@ -8,7 +8,6 @@ import {
   type StoredSession,
 } from '@speak-coach/shared';
 
-import Mascot from '../components/ui/Mascot';
 import { loadGrowth } from '../store/growth';
 import { useAuthStore } from '../store/auth';
 import { todayDone } from '../lib/gamification';
@@ -77,20 +76,14 @@ export default function ScenarioHub() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 md:py-8">
-      {/* Hero */}
-      <div className="flex flex-col items-center text-center mb-8 animate-pop-in">
-        <Mascot size={104} className="animate-float drop-shadow-sm" />
-        <div className="relative mt-4 px-5 py-3 bg-white rounded-3xl shadow-card border border-line max-w-sm">
-          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-line rotate-45" />
-          <p className="text-ink font-bold text-lg leading-snug">种瓜得瓜，开口呱呱！</p>
-          <p className="text-sub text-sm mt-1">选个场景，或唠任意话题 👇</p>
+      {/* 页头 */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-extrabold text-ink">选个场景开练</h1>
+          <p className="text-sub text-sm mt-0.5">挑一个场景，或唠任意话题 👇</p>
         </div>
-      </div>
-
-      {/* 每日目标 */}
-      <div className="mb-6 flex justify-center">
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-sm font-bold ${done ? 'bg-success/10 border-success/30 text-success' : 'bg-white border-line text-ink shadow-card'}`}>
-          {done ? `✅ 今日已完成 · 连击 ${streak} 天` : '🎯 今日目标：完成 1 次练习，点亮连击'}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border text-xs font-bold ${done ? 'bg-success/10 border-success/30 text-success' : 'bg-white border-line text-ink shadow-card'}`}>
+          {done ? `✅ 连续 ${streak} 天` : '🎯 今日待完成'}
         </div>
       </div>
 

@@ -8,14 +8,19 @@ import { getEngine, getCurrentEngine } from '../audio/tts-engine';
 import { initTtsEngines } from '../audio/tts-init';
 import SettingsPanel from '../components/SettingsPanel';
 import { generateReport, mergeAcousticScores } from '../llm/report-generator';
-import { stripMarkdown } from '../llm/strip-markdown';
+import { stripMarkdown, stripStageDirections } from '../llm/strip-markdown';
 import { useSessionStore } from '../store/session';
 import { useSettingsStore } from '../store/settings';
 import { useStallDetector } from '../hooks/useStallDetector';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useConversationLlm } from '../hooks/useConversationLlm';
+import { useTypewriter } from '../hooks/useTypewriter';
 import { generateHints, type Hints } from '../llm/hint-generator';
+import { translateToZh } from '../llm/translate';
 import { assessPronunciation } from '../api/pronunciation';
+import { pcmToWavBlob } from '../audio/pcm-recorder';
+import WordableText from '../components/WordableText';
+import WordPopover from '../components/WordPopover';
 
 initTtsEngines();
 
@@ -49,6 +54,7 @@ export default function Conversation() {
     readingTurnId, setReadingTurnId,
     addPronunciation,
   } = useSessionStore();
+  const pronunciationScores = useSessionStore((s) => s.pronunciationScores);
 
   const setIflytekDisabled = useSettingsStore((s) => s.setIflytekDisabled);
   const setIflytekLastError = useSettingsStore((s) => s.setIflytekLastError);
@@ -64,6 +70,15 @@ export default function Conversation() {
   const [isEnding, setIsEnding] = useState(false);
   const [hints, setHints] = useState<Hints | null>(null);
   const [hintLoading, setHintLoading] = useState(false);
+  /** 各 AI 消息的中文翻译（turnId → 译文）；存在即展示 */
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  /** 各用户发言的录音回放 URL（turnId → wav object URL） */
+  const [recordings, setRecordings] = useState<Record<string, string>>({});
+  /** 正在评测中的用户发言 turnId 集合（用于显示"评分中…"） */
+  const [assessingIds, setAssessingIds] = useState<string[]>([]);
+  /** 查词弹层（点击对话单词时打开） */
+  const [wordPopover, setWordPopover] = useState<{ word: string; context: string; rect: DOMRect } | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
@@ -213,11 +228,54 @@ export default function Conversation() {
     });
   }, [readingTurnId, setReadingTurnId, stopAllTts, isAiSpeaking, setAiSpeaking, setIflytekDisabled, setIflytekLastError]);
 
+  /** 翻译/收起某条 AI 消息的中文（已展示则收起；未翻译则请求） */
+  const handleTranslate = useCallback(async (turnId: string, text: string) => {
+    // 已显示 → 收起
+    if (translations[turnId] !== undefined) {
+      setTranslations((m) => {
+        const next = { ...m };
+        delete next[turnId];
+        return next;
+      });
+      return;
+    }
+    if (!text.trim()) return;
+    setTranslatingId(turnId);
+    try {
+      const zh = await translateToZh(text);
+      setTranslations((m) => ({ ...m, [turnId]: zh }));
+    } catch (err) {
+      console.error('[Conversation.handleTranslate] 翻译失败:', err);
+      setNotice('翻译失败，请稍后重试。');
+    } finally {
+      setTranslatingId(null);
+    }
+  }, [translations]);
+
+  /** 播放某条用户发言的录音回放 */
+  const playRecording = useCallback((turnId: string) => {
+    const url = recordings[turnId];
+    if (!url) return;
+    const audio = new Audio(url);
+    audio.play().catch((e) => console.warn('[Conversation] 录音回放失败:', e));
+  }, [recordings]);
+
+  // 卸载时回收所有录音 object URL，避免内存泄漏
+  const recordingsRef = useRef(recordings);
+  recordingsRef.current = recordings;
+  useEffect(
+    () => () => {
+      Object.values(recordingsRef.current).forEach((url) => URL.revokeObjectURL(url));
+    },
+    [],
+  );
+
   // ── Hook：语音输入 ─────────────────────────────────────────────────────────
   const {
     isSupported: speechSupported,
     recordingPreview,
     recordingHasInterim,
+    isTranscribing,
     startRecording: startVoice,
     stopRecording: stopVoice,
     cleanup: cleanupVoice,
@@ -230,10 +288,25 @@ export default function Conversation() {
         (t) => t.role === 'user' && t.text === transcript,
       );
       const turnId = userTurn?.id ?? '';
-      // 异步评测，不阻塞对话；成功则累积声学分
-      void assessPronunciation(pcm, transcript, turnId).then((result) => {
-        if (result) addPronunciation(result);
-      });
+      if (!turnId) return;
+
+      // 录音回放：PCM → WAV object URL，按 turnId 存储
+      try {
+        const url = URL.createObjectURL(pcmToWavBlob(pcm, 16000));
+        setRecordings((m) => ({ ...m, [turnId]: url }));
+      } catch (e) {
+        console.warn('[Conversation] 录音封装失败:', e);
+      }
+
+      // 异步评测，不阻塞对话；成功则累积声学分（实时显示在该句下方）
+      setAssessingIds((ids) => [...ids, turnId]);
+      void assessPronunciation(pcm, transcript, turnId)
+        .then((result) => {
+          if (result) addPronunciation(result);
+        })
+        .finally(() => {
+          setAssessingIds((ids) => ids.filter((id) => id !== turnId));
+        });
     },
     onUnsupported: () => {
       setInputMode('text');
@@ -301,10 +374,16 @@ export default function Conversation() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 流式文本打字机平滑（把多词块跳变变成逐字递增）
+  const typedAiText = useTypewriter(currentAiText);
+
   // ── 自动滚动 ───────────────────────────────────────────────────────────────
+  // 流式打字过程中用即时滚动（避免每帧 smooth 动画相互打断造成"抖动"感）；
+  // 轮次变化时用平滑滚动。
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [turns, currentAiText, recordingPreview]);
+    const streaming = currentAiText.length > 0;
+    chatEndRef.current?.scrollIntoView({ behavior: streaming ? 'auto' : 'smooth' });
+  }, [turns, typedAiText, recordingPreview, currentAiText]);
 
   // ── 语音操作（含错误提示）─────────────────────────────────────────────────
   const handleStartRecording = useCallback(async () => {
@@ -427,28 +506,93 @@ export default function Conversation() {
               {turn.role === 'ai' ? (
                 <div className="flex flex-col items-start gap-1 max-w-[75%]">
                   <div className="px-4 py-2.5 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-100 rounded-bl-md">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      <WordableText
+                        text={turn.text}
+                        onWordClick={(word, context, rect) => setWordPopover({ word, context, rect })}
+                      />
+                    </p>
+                    {translations[turn.id] && (
+                      <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-wrap mt-1.5 pt-1.5 border-t border-gray-100">
+                        {translations[turn.id]}
+                      </p>
+                    )}
                   </div>
-                  <button
-                    onClick={() => handleReadAloud(turn.id, turn.text)}
-                    disabled={isLoading}
-                    className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg transition-colors ${
-                      readingTurnId === turn.id
-                        ? 'text-indigo-600 bg-indigo-50'
-                        : isLoading
-                          ? 'text-gray-300 cursor-not-allowed'
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleReadAloud(turn.id, turn.text)}
+                      disabled={isLoading}
+                      className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg transition-colors ${
+                        readingTurnId === turn.id
+                          ? 'text-indigo-600 bg-indigo-50'
+                          : isLoading
+                            ? 'text-gray-300 cursor-not-allowed'
+                            : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+                      }`}
+                      title={readingTurnId === turn.id ? '停止朗读' : '朗读'}
+                    >
+                      <span>{readingTurnId === turn.id ? '🔊' : '🔈'}</span>
+                      <span>{readingTurnId === turn.id ? '正在朗读…' : '朗读'}</span>
+                    </button>
+                    <button
+                      onClick={() => void handleTranslate(turn.id, turn.text)}
+                      disabled={translatingId === turn.id}
+                      className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg transition-colors ${
+                        translations[turn.id]
+                          ? 'text-indigo-600 bg-indigo-50'
                           : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
-                    }`}
-                    title={readingTurnId === turn.id ? '停止朗读' : '朗读'}
-                  >
-                    <span>{readingTurnId === turn.id ? '🔊' : '🔈'}</span>
-                    <span>{readingTurnId === turn.id ? '正在朗读…' : '朗读'}</span>
-                  </button>
+                      }`}
+                      title="中文翻译"
+                    >
+                      <span>🌐</span>
+                      <span>
+                        {translatingId === turn.id ? '翻译中…' : translations[turn.id] ? '隐藏翻译' : '译'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-indigo-600 text-white rounded-br-md">
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
-                </div>
+                (() => {
+                  const pron = pronunciationScores.find((p) => p.turnId === turn.id);
+                  const assessing = assessingIds.includes(turn.id);
+                  const hasRecording = !!recordings[turn.id];
+                  const scoreColor = pron
+                    ? pron.accuracy >= 80
+                      ? 'text-green-600'
+                      : pron.accuracy >= 60
+                        ? 'text-amber-600'
+                        : 'text-red-500'
+                    : '';
+                  return (
+                    <div className="flex flex-col items-end gap-1 max-w-[75%]">
+                      <div className="px-4 py-2.5 rounded-2xl bg-indigo-600 text-white rounded-br-md">
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
+                      </div>
+                      {(pron || assessing || hasRecording) && (
+                        <div className="flex items-center gap-2">
+                          {hasRecording && (
+                            <button
+                              onClick={() => playRecording(turn.id)}
+                              className="text-xs flex items-center gap-1 px-2 py-1 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              title="回放我的录音"
+                            >
+                              <span>▶️</span>
+                              <span>回放</span>
+                            </button>
+                          )}
+                          {assessing && (
+                            <span className="text-xs text-gray-400">发音评分中…</span>
+                          )}
+                          {pron && (
+                            <span className={`text-xs font-bold ${scoreColor}`} title="本句发音评分（声学）">
+                              🎙️ 发音 {pron.accuracy} 分
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               )}
               {turn.role === 'user' && (
                 <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">
@@ -482,7 +626,7 @@ export default function Conversation() {
               </div>
               <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-100 rounded-bl-md">
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {stripMarkdown(currentAiText)}
+                  {stripStageDirections(stripMarkdown(typedAiText))}
                   <span className="animate-pulse text-indigo-400">|</span>
                 </p>
               </div>
@@ -608,12 +752,23 @@ export default function Conversation() {
         {/* Status */}
         <div className="text-center text-xs text-gray-400 pb-1 h-5 mt-1">
           {isRecording && '🔴 Listening...'}
-          {isAiSpeaking && !isRecording && !isLoading && '🔊 AI is speaking...'}
-          {isLoading && !isRecording && '💭 Thinking...'}
+          {isTranscribing && !isRecording && '🧠 识别中…'}
+          {isAiSpeaking && !isRecording && !isLoading && !isTranscribing && '🔊 AI is speaking...'}
+          {isLoading && !isRecording && !isTranscribing && '💭 Thinking...'}
         </div>
       </div>
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {wordPopover && (
+        <WordPopover
+          word={wordPopover.word}
+          context={wordPopover.context}
+          rect={wordPopover.rect}
+          scenarioId={scenarioId}
+          onClose={() => setWordPopover(null)}
+        />
+      )}
     </div>
   );
 }

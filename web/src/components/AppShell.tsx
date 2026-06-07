@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, Link } from 'react-router-dom';
 
 import Mascot from './ui/Mascot';
 import LevelBar from './ui/LevelBar';
@@ -42,10 +42,10 @@ export default function AppShell() {
         {/* 移动端顶部状态栏 */}
         <header className="md:hidden sticky top-0 z-20 bg-white/85 backdrop-blur border-b border-line">
           <div className="px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2 font-extrabold text-ink">
+            <Link to="/" className="flex items-center gap-2 font-extrabold text-ink" title="返回主页">
               <Mascot size={34} />
               <span className="text-base">英语口语顶呱呱</span>
-            </div>
+            </Link>
             <div className="flex items-center gap-2 text-sm font-bold">
               <LevelBar totalXp={xp} compact />
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-accent-dark" title="连续练习天数">

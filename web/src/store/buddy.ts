@@ -26,6 +26,8 @@ interface BuddyState {
   buddies: BuddyRelation[];
   encouragements: EncouragementDTO[];
   ranking: RankingEntry[];
+  /** 本次会话内已发出邀请的用户 id（用于在发现列表上显示"已邀请·待接受"） */
+  invitedIds: string[];
   loading: boolean;
   error: string | null;
 
@@ -50,6 +52,7 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   buddies: [],
   encouragements: [],
   ranking: [],
+  invitedIds: [],
   loading: false,
   error: null,
 
@@ -59,7 +62,8 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const { candidates } = await api.buddy.matches(t, filters);
-      set({ matches: candidates });
+      // 后端已排除已邀请者；重载时清空本地"已邀请"标记，保持一致
+      set({ matches: candidates, invitedIds: [] });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : '加载失败' });
     } finally {
@@ -125,8 +129,10 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     const t = token();
     if (!t) return;
     await api.buddy.sendRequest(t, toUserId);
-    // 邀请后从匹配列表移除该候选
-    set({ matches: get().matches.filter((c) => c.userId !== toUserId) });
+    // 邀请后保留卡片，标记为"已邀请·待接受"，给出明确反馈（不再凭空消失）
+    if (!get().invitedIds.includes(toUserId)) {
+      set({ invitedIds: [...get().invitedIds, toUserId] });
+    }
   },
 
   accept: async (requestId) => {
