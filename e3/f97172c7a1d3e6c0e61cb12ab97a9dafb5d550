@@ -1,0 +1,55 @@
+openspec/changes/archive/2026-06-07-add-pronunciation-assessment/specs/pronunciation-assessment/spec.md
+  s_87206fd6839359::t_add169365969c5 1-65
+package-lock.json
+  ai_agent 2981-2988,3676-3683,5005-5016,8027-8034,8851-8858,9714
+openspec/specs/report-export/spec.md
+  s_87206fd6839359::t_add169365969c5 1-86
+web/src/components/icons.tsx
+  s_87206fd6839359::t_add169365969c5 208-218
+openspec/changes/archive/2026-06-07-add-report-export/.openspec.yaml
+  s_87206fd6839359::t_add169365969c5 1-2
+web/package.json
+  s_87206fd6839359::t_add169365969c5 18
+web/src/pages/Report.tsx
+  s_87206fd6839359::t_add169365969c5 9-13,27,68-69,73-74,125-130,136-160,225,422,443,446-467
+openspec/changes/archive/2026-06-07-add-report-export/specs/report-export/spec.md
+  s_87206fd6839359::t_add169365969c5 1-86
+web/src/lib/export-report-png.ts
+  s_87206fd6839359::t_add169365969c5 1-71
+openspec/specs/pronunciation-assessment/spec.md
+  s_87206fd6839359::t_add169365969c5 1-70
+openspec/changes/archive/2026-06-07-add-pronunciation-assessment/design.md
+  s_87206fd6839359::t_add169365969c5 1-71
+specs/02-SDD.md
+  s_87206fd6839359::t_add169365969c5 19
+web/src/lib/export-report-png.test.ts
+  s_87206fd6839359::t_add169365969c5 1-102
+openspec/changes/archive/2026-06-07-add-report-export/proposal.md
+  s_87206fd6839359::t_add169365969c5 1-30
+openspec/changes/archive/2026-06-07-add-pronunciation-assessment/.openspec.yaml
+  s_87206fd6839359::t_add169365969c5 1-2
+openspec/changes/archive/2026-06-07-add-pronunciation-assessment/proposal.md
+  s_87206fd6839359::t_add169365969c5 1-56
+openspec/changes/archive/2026-06-07-add-pronunciation-assessment/tasks.md
+  s_87206fd6839359::t_add169365969c5 1-52
+openspec/changes/archive/2026-06-07-add-report-export/design.md
+  s_87206fd6839359::t_add169365969c5 1-136
+openspec/changes/archive/2026-06-07-add-report-export/tasks.md
+  s_87206fd6839359::t_add169365969c5 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "e3f97172c7a1d3e6c0e61cb12ab97a9dafb5d550",
+  "prompts": {},
+  "sessions": {
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
