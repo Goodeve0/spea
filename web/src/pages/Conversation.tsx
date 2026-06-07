@@ -14,6 +14,7 @@ import { useSettingsStore } from '../store/settings';
 import { useStallDetector } from '../hooks/useStallDetector';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useConversationLlm } from '../hooks/useConversationLlm';
+import { useTypewriter } from '../hooks/useTypewriter';
 import { generateHints, type Hints } from '../llm/hint-generator';
 import { assessPronunciation } from '../api/pronunciation';
 
@@ -270,10 +271,16 @@ export default function Conversation() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 流式文本打字机平滑（把多词块跳变变成逐字递增）
+  const typedAiText = useTypewriter(currentAiText);
+
   // ── 自动滚动 ───────────────────────────────────────────────────────────────
+  // 流式打字过程中用即时滚动（避免每帧 smooth 动画相互打断造成"抖动"感）；
+  // 轮次变化时用平滑滚动。
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [turns, currentAiText, recordingPreview]);
+    const streaming = currentAiText.length > 0;
+    chatEndRef.current?.scrollIntoView({ behavior: streaming ? 'auto' : 'smooth' });
+  }, [turns, typedAiText, recordingPreview, currentAiText]);
 
   // ── 语音操作（含错误提示）─────────────────────────────────────────────────
   const handleStartRecording = useCallback(async () => {
@@ -451,7 +458,7 @@ export default function Conversation() {
               </div>
               <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-100 rounded-bl-md">
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {stripMarkdown(currentAiText)}
+                  {stripMarkdown(typedAiText)}
                   <span className="animate-pulse text-indigo-400">|</span>
                 </p>
               </div>
