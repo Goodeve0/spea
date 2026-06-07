@@ -8,6 +8,11 @@ import { recordSession, loadGrowth } from '../store/growth';
 import { useAuthStore } from '../store/auth';
 import { levelInfo, evaluateAchievements, type Achievement } from '../lib/gamification';
 import { syncEarnedTimes } from '../lib/achievements-store';
+import {
+  buildReportExportFilename,
+  exportElementToPng,
+  waitForGrowthCurveReady,
+} from '../lib/export-report-png';
 import Mascot from '../components/ui/Mascot';
 import RewardBanner from '../components/RewardBanner';
 import LevelUpCelebration from '../components/LevelUpCelebration';
@@ -22,6 +27,7 @@ import {
   ChatIcon,
   RecastIcon,
   RefreshIcon,
+  DownloadIcon,
   PersonIcon,
   RobotIcon,
 } from '../components/icons';
@@ -66,10 +72,14 @@ export default function Report() {
   const sessionIdRef = useRef<string>(`sess-${Date.now()}`);
   const celebratedRef = useRef(false);
   const badgeCelebratedRef = useRef(false);
+  const reportExportRef = useRef<HTMLDivElement>(null);
+  const exportErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [growthSessions, setGrowthSessions] = useState<StoredSession[]>([]);
   const [growthMeta, setGrowthMeta] = useState<{ streak: number; totalXp: number } | null>(null);
   const [celebrateLevel, setCelebrateLevel] = useState<number | null>(null);
   const [celebrateBadges, setCelebrateBadges] = useState<Achievement[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const hasSpeech = !!report && (report.hasUserSpeech ?? report.annotatedTurns.some((t) => t.role === 'user'));
   // 发音未评测（无录音）时，综合分排除发音维度，避免文字模式被发音拉低/虚高
@@ -136,9 +146,40 @@ export default function Report() {
     return () => { alive = false; };
   }, [report, hasSpeech, overallScore]);
 
+  useEffect(() => {
+    return () => {
+      if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
+    };
+  }, []);
+
   const goHome = () => {
     useSessionStore.getState().reset();
     navigate('/');
+  };
+
+  const showExportError = (message: string) => {
+    setExportError(message);
+    if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
+    exportErrorTimerRef.current = setTimeout(() => {
+      setExportError(null);
+      exportErrorTimerRef.current = null;
+    }, 3000);
+  };
+
+  const handleExport = async () => {
+    const element = reportExportRef.current;
+    if (!element || exporting) return;
+
+    setExporting(true);
+    setExportError(null);
+    try {
+      await waitForGrowthCurveReady(element, growthSessions.length > 0);
+      await exportElementToPng(element, buildReportExportFilename());
+    } catch {
+      showExportError('导出失败，请重试');
+    } finally {
+      setExporting(false);
+    }
   };
 
   // 报告生成中
@@ -208,6 +249,7 @@ export default function Report() {
       </nav>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <div ref={reportExportRef}>
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-8 animate-pop-in">
           <Mascot size={72} className="animate-float" />
@@ -404,7 +446,7 @@ export default function Report() {
         </div>
 
         {/* 成长曲线 */}
-        <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line">
+        <div className="bg-white rounded-3xl shadow-card p-6 mb-6 border border-line" data-growth-curve>
           <h2 className="text-lg font-extrabold text-ink mb-4 flex items-center gap-2"><GrowthIcon size={20} className="text-primary" /> 成长曲线</h2>
           <Suspense fallback={<div className="text-center py-10 text-sub text-sm">加载中…</div>}>
             <GrowthCurve sessions={growthSessions} />
@@ -425,15 +467,31 @@ export default function Report() {
             ))}
           </div>
         </div>
+        </div>
 
         {/* 操作 */}
-        <div className="text-center pb-8">
-          <button
-            onClick={goHome}
-            className="px-8 py-3 bg-primary text-white rounded-2xl font-extrabold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all shadow-pop"
-          >
-            <RefreshIcon size={18} className="inline-block -mt-0.5 mr-1 text-white" /> 再练一次
-          </button>
+        <div className="pb-8">
+          {exportError && (
+            <p className="text-center text-sm text-danger font-medium mb-3">{exportError}</p>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={exporting}
+              className="px-8 py-3 bg-white text-ink rounded-2xl font-extrabold border-2 border-line hover:bg-canvas disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+            >
+              <DownloadIcon size={18} className="inline-block -mt-0.5 mr-1 text-primary" />
+              {exporting ? '导出中…' : '导出'}
+            </button>
+            <button
+              type="button"
+              onClick={goHome}
+              className="px-8 py-3 bg-primary text-white rounded-2xl font-extrabold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0 transition-all shadow-pop"
+            >
+              <RefreshIcon size={18} className="inline-block -mt-0.5 mr-1 text-white" /> 再练一次
+            </button>
+          </div>
         </div>
       </div>
     </div>
