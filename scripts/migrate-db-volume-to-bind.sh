@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # migrate-db-volume-to-bind.sh
 # 一次性迁移脚本：把 docker named volume `speakcoach-db` 内的 app.db
 # 安全搬到 bind mount 目录 /srv/speakcoach/db/，并做完整性校验。
@@ -34,7 +34,7 @@ usage() {
   sed -n '2,28p' "$0"
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
   usage
   exit 0
 fi
@@ -84,7 +84,7 @@ docker run --rm \
 # ===== 4. 完整性校验 =====
 log '运行 PRAGMA integrity_check ...'
 RESULT="$(sqlite3 "$TMP_DIR/app.db" 'PRAGMA integrity_check;')"
-if [[ "$RESULT" != "ok" ]]; then
+if [ "$RESULT" != "ok" ]; then
   err "integrity_check 输出：$RESULT"
   err '迁移终止；compose 与命名卷均未改动；docker compose up -d server 即可恢复服务'
   exit 1
@@ -92,7 +92,7 @@ fi
 log 'integrity_check = ok'
 
 # ===== 5. 目标目录已有文件保护 =====
-if [[ -f "$BIND_DIR/app.db" ]]; then
+if [ -f "$BIND_DIR/app.db" ]; then
   PRE_TS="$(date +%Y%m%d-%H%M%S)"
   log "$BIND_DIR/app.db 已存在；先备份到 $BACKUP_DIR/pre-migrate-$PRE_TS.db"
   cp "$BIND_DIR/app.db" "$BACKUP_DIR/pre-migrate-$PRE_TS.db"

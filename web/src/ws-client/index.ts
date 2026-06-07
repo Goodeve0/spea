@@ -9,7 +9,15 @@ export class WsClient {
   private url: string;
 
   constructor(url?: string) {
-    this.url = url ?? `ws://${window.location.hostname}:3001`;
+    if (url) {
+      this.url = url;
+    } else if (window.location.protocol === 'https:') {
+      // HTTPS 下走 nginx 同源反代（/ws → 容器 3001），避免 mixed-content 与额外端口证书
+      this.url = `wss://${window.location.host}/ws`;
+    } else {
+      // 本地开发 / HTTP 直连容器 3001
+      this.url = `ws://${window.location.hostname}:3001`;
+    }
   }
 
   connect(): void {
