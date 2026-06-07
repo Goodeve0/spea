@@ -90,7 +90,7 @@ export default function ScenarioHub() {
       {/* 每日目标 */}
       <div className="mb-6 flex justify-center">
         <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-sm font-bold ${done ? 'bg-success/10 border-success/30 text-success' : 'bg-white border-line text-ink shadow-card'}`}>
-          {done ? `✅ 今日已完成 · 连击 ${streak} 天` : '🎯 今日目标：完成 1 次练习，点亮连击'}
+          {done ? `✅ 今日已完成 · 连续 ${streak} 天` : '🎯 今日目标：完成 1 次练习，点亮连续'}
         </div>
       </div>
 

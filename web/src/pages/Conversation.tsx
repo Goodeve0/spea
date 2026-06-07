@@ -8,7 +8,7 @@ import { getEngine, getCurrentEngine } from '../audio/tts-engine';
 import { initTtsEngines } from '../audio/tts-init';
 import SettingsPanel from '../components/SettingsPanel';
 import { generateReport, mergeAcousticScores } from '../llm/report-generator';
-import { stripMarkdown } from '../llm/strip-markdown';
+import { stripMarkdown, stripStageDirections } from '../llm/strip-markdown';
 import { useSessionStore } from '../store/session';
 import { useSettingsStore } from '../store/settings';
 import { useStallDetector } from '../hooks/useStallDetector';
@@ -585,7 +585,7 @@ export default function Conversation() {
               </div>
               <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-100 rounded-bl-md">
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {stripMarkdown(typedAiText)}
+                  {stripStageDirections(stripMarkdown(typedAiText))}
                   <span className="animate-pulse text-indigo-400">|</span>
                 </p>
               </div>

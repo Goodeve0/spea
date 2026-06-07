@@ -5,10 +5,13 @@ import type { RadarScores, Difficulty, StoredSession } from '@speak-coach/shared
 
 import { useSessionStore } from '../store/session';
 import { recordSession, loadGrowth } from '../store/growth';
-import { levelInfo } from '../lib/gamification';
+import { useAuthStore } from '../store/auth';
+import { levelInfo, evaluateAchievements, type Achievement } from '../lib/gamification';
+import { syncEarnedTimes } from '../lib/achievements-store';
 import Mascot from '../components/ui/Mascot';
 import RewardBanner from '../components/RewardBanner';
 import LevelUpCelebration from '../components/LevelUpCelebration';
+import BadgeCelebration from '../components/BadgeCelebration';
 import {
   RADAR_DIM_ICONS,
   PartyIcon,
@@ -57,11 +60,16 @@ function avg(nums: number[]): number {
 export default function Report() {
   const navigate = useNavigate();
   const report = useSessionStore((s) => s.report);
-  const savedRef = useRef(false);
+  /** 保存 promise（去重 StrictMode 双跑 effect，确保 loadGrowth 在保存完成后才读） */
+  const savePromiseRef = useRef<Promise<void> | null>(null);
+  /** 稳定的本次会话 id（避免双跑生成两个 id） */
+  const sessionIdRef = useRef<string>(`sess-${Date.now()}`);
   const celebratedRef = useRef(false);
+  const badgeCelebratedRef = useRef(false);
   const [growthSessions, setGrowthSessions] = useState<StoredSession[]>([]);
   const [growthMeta, setGrowthMeta] = useState<{ streak: number; totalXp: number } | null>(null);
   const [celebrateLevel, setCelebrateLevel] = useState<number | null>(null);
+  const [celebrateBadges, setCelebrateBadges] = useState<Achievement[]>([]);
 
   const hasSpeech = !!report && (report.hasUserSpeech ?? report.annotatedTurns.some((t) => t.role === 'user'));
   // 发音未评测（无录音）时，综合分排除发音维度，避免文字模式被发音拉低/虚高
@@ -79,33 +87,49 @@ export default function Report() {
     if (!report) return;
     let alive = true;
     void (async () => {
-      if (hasSpeech && !savedRef.current) {
-        savedRef.current = true;
-        await recordSession(
-          {
-            id: `sess-${Date.now()}`,
-            timestamp: Date.now(),
-            scenarioId: localStorage.getItem('scenarioId') ?? 'unknown',
-            difficulty: (localStorage.getItem('difficulty') as Difficulty) ?? 'intermediate',
-            radar: report.radar,
-            overallScore,
-            cefrEstimate: report.cefrEstimate,
-          },
-          report,
-        );
+      // 关键：用 savePromiseRef 去重，保证 StrictMode 双跑时只保存一次，
+      // 且两次 effect 都 await 同一个保存 promise，避免在保存完成前就 loadGrowth（导致 XP/连续读成 0）
+      if (hasSpeech) {
+        if (!savePromiseRef.current) {
+          savePromiseRef.current = recordSession(
+            {
+              id: sessionIdRef.current,
+              timestamp: Date.now(),
+              scenarioId: localStorage.getItem('scenarioId') ?? 'unknown',
+              difficulty: (localStorage.getItem('difficulty') as Difficulty) ?? 'intermediate',
+              radar: report.radar,
+              overallScore,
+              cefrEstimate: report.cefrEstimate,
+            },
+            report,
+          );
+        }
+        await savePromiseRef.current;
       }
       const g = await loadGrowth();
-      if (alive) {
-        setGrowthSessions(g.sessions);
-        setGrowthMeta({ streak: g.streak, totalXp: g.totalXp });
-        // 升级检测：本次得分使累计跨过等级线则庆祝（每个报告只弹一次）
-        if (!celebratedRef.current) {
-          const after = levelInfo(g.totalXp).level;
-          const before = levelInfo(Math.max(0, g.totalXp - overallScore)).level;
-          if (after > before) {
-            celebratedRef.current = true;
-            setCelebrateLevel(after);
-          }
+      if (!alive) return;
+      setGrowthSessions(g.sessions);
+      setGrowthMeta({ streak: g.streak, totalXp: g.totalXp });
+
+      // 升级检测：本次得分使累计跨过等级线则庆祝（每个报告只弹一次）
+      if (!celebratedRef.current) {
+        const after = levelInfo(g.totalXp).level;
+        const before = levelInfo(Math.max(0, g.totalXp - overallScore)).level;
+        if (after > before) {
+          celebratedRef.current = true;
+          setCelebrateLevel(after);
+        }
+      }
+
+      // 新徽章检测：本次新解锁的徽章弹庆祝（每个报告只弹一次）
+      if (!badgeCelebratedRef.current) {
+        badgeCelebratedRef.current = true;
+        const userId = useAuthStore.getState().user?.id;
+        const achievements = evaluateAchievements(g.sessions, g.streak);
+        const unlockedIds = achievements.filter((a) => a.unlocked).map((a) => a.id);
+        const { newlyEarned } = syncEarnedTimes(unlockedIds, userId);
+        if (newlyEarned.length > 0) {
+          setCelebrateBadges(achievements.filter((a) => newlyEarned.includes(a.id)));
         }
       }
     })();
@@ -163,6 +187,9 @@ export default function Report() {
     <div className="min-h-screen bg-canvas">
       {celebrateLevel !== null && (
         <LevelUpCelebration level={celebrateLevel} onClose={() => setCelebrateLevel(null)} />
+      )}
+      {celebrateLevel === null && celebrateBadges.length > 0 && (
+        <BadgeCelebration badges={celebrateBadges} onClose={() => setCelebrateBadges([])} />
       )}
 
       {/* 顶部固定导航栏 */}

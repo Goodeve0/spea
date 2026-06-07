@@ -39,3 +39,18 @@ export function stripMarkdown(input: string): string {
 
   return text.trim();
 }
+
+/**
+ * 去除括号内的"舞台说明"（如 "(Adjusting slightly in chair)"、"（微笑）"）。
+ * 口语陪练里这类描述既不该显示也不该被 TTS 读出来。
+ * 处理中英文括号，并清理残留的多余空格。
+ */
+export function stripStageDirections(input: string): string {
+  if (!input) return '';
+  return input
+    .replace(/（[^）]*）/g, '') // 中文括号
+    .replace(/\([^)]*\)/g, '') // 英文括号
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,.!?])/g, '$1')
+    .trim();
+}

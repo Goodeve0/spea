@@ -17,7 +17,7 @@
 import { useState, useCallback } from 'react';
 import type { Scenario } from '@speak-coach/shared';
 import { streamChat, type ChatMessage } from '../llm/client';
-import { stripMarkdown } from '../llm/strip-markdown';
+import { stripMarkdown, stripStageDirections } from '../llm/strip-markdown';
 import { useSessionStore } from '../store/session';
 
 interface UseConversationLlmOptions {
@@ -58,6 +58,7 @@ export function useConversationLlm({
             '\n- Stay fully in character at all times. Never break role to give writing tips, resume advice, or meta commentary.' +
             '\n- Reply the way a real person would SPEAK: short and natural, usually 1-2 sentences.' +
             '\n- Plain conversational text ONLY. Do NOT use markdown, bullet points, numbered lists, bold/asterisks, or headings.' +
+            '\n- Do NOT include stage directions, action descriptions, or emotes in parentheses (e.g. "(smiling)", "(adjusting in chair)"). Speak only the words you would actually say out loud.' +
             '\n- Ask one simple follow-up question to keep the conversation going.',
         },
         ...history.map((t) => ({
@@ -92,9 +93,9 @@ export function useConversationLlm({
 
       try {
         const reply = await streamChat(messages, (chunk) => appendAiText(chunk));
-        // 清理模型可能残留的 markdown 符号，用于显示与朗读
+        // 清理 markdown 符号与括号舞台说明，用于显示与朗读（两者都不该出现）
         const finalReply =
-          stripMarkdown(reply).trim() ||
+          stripStageDirections(stripMarkdown(reply)).trim() ||
           "Sorry, I didn't catch that. Could you say it again?";
         const aiTurnId = `ai-${Date.now()}`;
         addTurn({
