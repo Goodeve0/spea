@@ -13,7 +13,7 @@ export default function BuddyInviteBanner() {
   if (pendingRoomInvites.length === 0) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-40 px-4 pt-3 pointer-events-none">
+    <div className="fixed top-0 left-0 right-0 z-[60] px-4 pt-3 pointer-events-none">
       <div className="max-w-3xl mx-auto space-y-2 pointer-events-auto">
         {pendingRoomInvites.map((inv) => (
           <div

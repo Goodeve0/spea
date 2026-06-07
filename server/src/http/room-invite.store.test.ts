@@ -4,7 +4,9 @@ import {
   INVITE_TTL_MS,
   addRoomInvite,
   clearRoomInvites,
+  markRoomInvitesDelivered,
   peekQueueSize,
+  peekRoomInvites,
   takeRoomInvites,
 } from './room-invite.store';
 
@@ -18,6 +20,14 @@ describe('room-invite.store', () => {
   afterEach(() => {
     vi.useRealTimers();
     clearRoomInvites();
+  });
+
+  it('peekRoomInvites does not mark delivered until markRoomInvitesDelivered', () => {
+    addRoomInvite('user-b', 'user-a', 'room-1');
+    expect(peekRoomInvites('user-b')).toHaveLength(1);
+    expect(peekRoomInvites('user-b')).toHaveLength(1);
+    markRoomInvitesDelivered('user-b', ['room-1']);
+    expect(peekRoomInvites('user-b')).toEqual([]);
   });
 
   it('takeRoomInvites returns pending invites and marks them delivered', () => {
