@@ -7,7 +7,7 @@ import type { Difficulty } from '@speak-coach/shared';
 import { getEngine, getCurrentEngine } from '../audio/tts-engine';
 import { initTtsEngines } from '../audio/tts-init';
 import SettingsPanel from '../components/SettingsPanel';
-import { generateReport } from '../llm/report-generator';
+import { generateReport, mergeAcousticScores } from '../llm/report-generator';
 import { stripMarkdown } from '../llm/strip-markdown';
 import { useSessionStore } from '../store/session';
 import { useSettingsStore } from '../store/settings';
@@ -15,6 +15,7 @@ import { useStallDetector } from '../hooks/useStallDetector';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useConversationLlm } from '../hooks/useConversationLlm';
 import { generateHints, type Hints } from '../llm/hint-generator';
+import { assessPronunciation } from '../api/pronunciation';
 
 initTtsEngines();
 
@@ -46,6 +47,7 @@ export default function Conversation() {
     isAiSpeaking, setAiSpeaking, currentAiText,
     resetAiText, setReport,
     readingTurnId, setReadingTurnId,
+    addPronunciation,
   } = useSessionStore();
 
   const setIflytekDisabled = useSettingsStore((s) => s.setIflytekDisabled);
@@ -152,18 +154,53 @@ export default function Conversation() {
     }
 
     const settings = useSettingsStore.getState();
-    const engine = getEngine(settings.ttsEngine) ?? getCurrentEngine();
+    const engineId = settings.ttsEngine;
+    const engine = getEngine(engineId) ?? getCurrentEngine();
     setReadingTurnId(turnId);
-    engine.speak(text, {
-      voice: settings.iflytekVoice,
-      onEnd: () => { setReadingTurnId(null); readingBusyRef.current = false; },
-      onError: (err) => {
-        console.error('[Conversation.handleReadAloud] tts error, turnId:', turnId, err);
+
+    // 浏览器引擎兜底：讯飞失败时回退；浏览器再失败则给出可见提示
+    const playBrowserFallback = () => {
+      const browser = getEngine('browser');
+      if (!browser) {
         setReadingTurnId(null);
         readingBusyRef.current = false;
+        setNotice('当前浏览器不支持朗读功能。');
+        return;
+      }
+      setReadingTurnId(turnId);
+      browser.speak(text, {
+        rate: settings.playbackSpeed,
+        onEnd: () => { setReadingTurnId(null); readingBusyRef.current = false; },
+        onError: (e) => {
+          console.error('[Conversation.handleReadAloud] browser fallback failed:', e);
+          setReadingTurnId(null);
+          readingBusyRef.current = false;
+          setNotice('朗读失败：浏览器语音合成不可用。请确认系统已安装英文语音，或刷新页面重试。');
+        },
+      });
+    };
+
+    engine.speak(text, {
+      voice: settings.iflytekVoice,
+      rate: settings.playbackSpeed,
+      onEnd: () => { setReadingTurnId(null); readingBusyRef.current = false; },
+      onError: (err) => {
+        console.error('[Conversation.handleReadAloud] tts error, engineId:', engineId, err);
+        if (engineId === 'iflytek') {
+          setIflytekLastError(err.message);
+          const isVoiceIssue = /11119|vcn|voice|发音人/i.test(err.message);
+          if (!isVoiceIssue) setIflytekDisabled(true);
+          stopAllTts();
+          playBrowserFallback();
+        } else {
+          // 已是浏览器引擎仍失败 → 可见提示，便于定位
+          setReadingTurnId(null);
+          readingBusyRef.current = false;
+          setNotice('朗读失败：浏览器语音合成不可用。请确认系统已安装英文语音，或刷新页面重试。');
+        }
       },
     });
-  }, [readingTurnId, setReadingTurnId, stopAllTts, isAiSpeaking, setAiSpeaking]);
+  }, [readingTurnId, setReadingTurnId, stopAllTts, isAiSpeaking, setAiSpeaking, setIflytekDisabled, setIflytekLastError]);
 
   // ── Hook：语音输入 ─────────────────────────────────────────────────────────
   const {
@@ -175,6 +212,18 @@ export default function Conversation() {
     cleanup: cleanupVoice,
   } = useVoiceInput({
     onTranscript: (text) => void handleUserMessage(text),
+    onAudio: (pcm, transcript) => {
+      // onTranscript 已同步创建用户 turn，这里按文本匹配回填 turnId
+      const turns = useSessionStore.getState().turns;
+      const userTurn = [...turns].reverse().find(
+        (t) => t.role === 'user' && t.text === transcript,
+      );
+      const turnId = userTurn?.id ?? '';
+      // 异步评测，不阻塞对话；成功则累积声学分
+      void assessPronunciation(pcm, transcript, turnId).then((result) => {
+        if (result) addPronunciation(result);
+      });
+    },
     onUnsupported: () => {
       setInputMode('text');
       setNotice('当前浏览器不支持语音识别，已自动切换到文字模式。如需语音，请使用 Chrome。');
@@ -249,7 +298,14 @@ export default function Conversation() {
     setNotice('正在生成报告…');
     try {
       const latestTurns = useSessionStore.getState().turns;
-      const report = await generateReport(latestTurns, 'local-session');
+      const baseReport = await generateReport(latestTurns, 'local-session');
+      // 用真实声学评测分覆盖 LLM 估算的发音分（无录音则标记 'none'）
+      const acoustic = useSessionStore.getState().pronunciationScores.map((p) => ({
+        accuracy: p.accuracy,
+        fluency: p.fluency,
+        wordScores: p.wordScores,
+      }));
+      const report = mergeAcousticScores(baseReport, acoustic);
       setReport(report as never);
       navigate('/report');
     } catch (err) {

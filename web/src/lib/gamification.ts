@@ -12,10 +12,11 @@ const ALL_BUILTIN_SCENES = new Set([
   'doctor', 'shopping', 'hotel', 'smalltalk', 'ielts',
 ]);
 
-/** 到达某等级所需的累计 XP：cum(level) = 50 * (level-1) * level
- *  level1=0, level2=100, level3=300, level4=600 ... 递增 */
+/** 到达某等级所需的累计 XP：cum(level) = 30 * (level-1) * level
+ *  level1=0, level2=60, level3=180, level4=360, level5=600 ... 递增
+ *  （系数 30：一次约 60-85 分的练习即可从 1 级升到 2 级，保证首次升级即时反馈） */
 function cumXp(level: number): number {
-  return 50 * (level - 1) * level;
+  return 30 * (level - 1) * level;
 }
 
 export interface LevelInfo {
@@ -262,8 +263,8 @@ const ACHIEVEMENTS: AchievementDef[] = [
     id: 'challenger',
     icon: '⚔️',
     title: '迎刃而解',
-    desc: '困难模式完成 5 次',
-    check: (c) => c.sessions.filter((s) => s.difficulty === 'hard').length >= 5,
+    desc: '高级模式完成 5 次',
+    check: (c) => c.sessions.filter((s) => s.difficulty === 'advanced').length >= 5,
   },
 ];
 

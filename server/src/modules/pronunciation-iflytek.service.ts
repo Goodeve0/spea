@@ -117,6 +117,10 @@ export class IflytekPronunciationService implements IPronunciationService {
           }
 
           if (payload.data?.status === 2) {
+            if (process.env.XFYUN_ISE_DEBUG === '1') {
+              console.log('[XFYUN ISE] referenceText:', referenceText);
+              console.log('[XFYUN ISE] raw XML:\n', finalXml);
+            }
             finish(() => resolve(parseXfyunIseXml(finalXml)));
           }
         } catch (err) {

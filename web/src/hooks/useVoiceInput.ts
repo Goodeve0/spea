@@ -16,16 +16,20 @@
  *
  * 使用方注入：
  *  - onTranscript(text)   — 录音结束且有有效文本时回调（由 Conversation 发给 LLM）
+ *  - onAudio(pcm, text)   — 录音结束且采集到 PCM 时回调（供发音评测；不支持/空则不触发）
  *  - onUnsupported()      — 浏览器不支持语音时回调（切换到文字模式）
  *  - beforeStart()        — 每次开始录音前的钩子（如停止 TTS 播放）
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserSpeechRecognition } from '../audio/speech-recognition';
 import { SilenceDetector } from '../audio/silence-detector';
+import { PcmRecorder } from '../audio/pcm-recorder';
 import { useSessionStore } from '../store/session';
 
 interface UseVoiceInputOptions {
   onTranscript: (text: string) => void;
+  /** 录音结束且采集到 16kHz Int16 PCM 时回调（供发音评测） */
+  onAudio?: (pcm: Int16Array, transcript: string) => void;
   onUnsupported?: () => void;
   beforeStart?: () => void;
 }
@@ -42,6 +46,7 @@ export interface VoiceInputHandle {
 
 export function useVoiceInput({
   onTranscript,
+  onAudio,
   onUnsupported,
   beforeStart,
 }: UseVoiceInputOptions): VoiceInputHandle {
@@ -54,6 +59,8 @@ export function useVoiceInput({
   const vadUnsubsRef = useRef<Array<() => void>>([]);
   const silenceDetectorRef = useRef<SilenceDetector | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  /** PCM 录制器（发音评测用），仅在支持 AudioWorklet 时启用 */
+  const pcmRecorderRef = useRef<PcmRecorder | null>(null);
 
   const pendingTranscriptRef = useRef('');
   const lastInterimRef = useRef('');
@@ -94,6 +101,9 @@ export function useVoiceInput({
     recognitionRef.current?.stop();
     silenceDetectorRef.current?.stop();
     silenceDetectorRef.current = null;
+    // PCM 录制器：安全网释放（正常路径已在 finishRecording 中抽取并置空）
+    pcmRecorderRef.current?.dispose();
+    pcmRecorderRef.current = null;
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     mediaStreamRef.current = null;
   }, []);
@@ -103,6 +113,27 @@ export function useVoiceInput({
     finishingRef.current = true;
 
     const text = getCombinedTranscript();
+
+    // 先抽取 PCM（stop() 只处理已采集的帧，不依赖 live stream），再清理媒体。
+    // 异步抽取，不阻塞对话；失败静默忽略。
+    const pcmRecorder = pcmRecorderRef.current;
+    pcmRecorderRef.current = null;
+    if (pcmRecorder) {
+      if (onAudio && text.trim()) {
+        pcmRecorder
+          .stop()
+          .then((pcm) => {
+            if (pcm.length > 0) onAudio(pcm, text);
+          })
+          .catch((err) => {
+            console.warn('[useVoiceInput] PCM 抽取失败，跳过发音评测:', err);
+          })
+          .finally(() => pcmRecorder.dispose());
+      } else {
+        pcmRecorder.dispose();
+      }
+    }
+
     cleanupMedia();
 
     pendingTranscriptRef.current = '';
@@ -116,7 +147,7 @@ export function useVoiceInput({
     if (text.trim()) {
       onTranscript(text);
     }
-  }, [cleanupMedia, onTranscript, setRecording]);
+  }, [cleanupMedia, onAudio, onTranscript, setRecording]);
 
   const isSupported = recognitionRef.current?.isSupported() ?? true;
 
@@ -141,6 +172,20 @@ export function useVoiceInput({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
+
+      // 并行启动 PCM 采集（发音评测用），复用同一 MediaStream，不二次申请麦克风。
+      // 失败/不支持不影响语音识别主流程。
+      if (onAudio && PcmRecorder.isSupported()) {
+        const pcmRec = new PcmRecorder();
+        try {
+          await pcmRec.start(stream);
+          pcmRecorderRef.current = pcmRec;
+        } catch (err) {
+          console.warn('[useVoiceInput] PCM 采集启动失败，跳过发音评测:', err);
+          pcmRec.dispose();
+          pcmRecorderRef.current = null;
+        }
+      }
 
       const detector = new SilenceDetector();
       silenceDetectorRef.current = detector;
@@ -191,7 +236,7 @@ export function useVoiceInput({
       setRecording(false);
       throw error; // 让调用方展示错误提示
     }
-  }, [beforeStart, cleanupMedia, finishRecording, onUnsupported, setRecording]);
+  }, [beforeStart, cleanupMedia, finishRecording, onAudio, onUnsupported, setRecording]);
 
   const stopRecording = useCallback((): void => {
     finishRecording();

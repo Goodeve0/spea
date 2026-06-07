@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Turn, Report, Difficulty } from '@speak-coach/shared';
+import type { Turn, Report, Difficulty, PronunciationResult } from '@speak-coach/shared';
 
 /** 会话状态 */
 interface SessionState {
@@ -14,6 +14,8 @@ interface SessionState {
   connected: boolean;
   /** 当前正在朗读的消息 ID（null 表示无朗读） */
   readingTurnId: string | null;
+  /** 本场会话各轮的真实声学发音评测结果 */
+  pronunciationScores: PronunciationResult[];
 
   // Actions
   setSession: (id: string, scenarioId: string, difficulty: Difficulty) => void;
@@ -25,6 +27,7 @@ interface SessionState {
   setReport: (report: Report) => void;
   setConnected: (v: boolean) => void;
   setReadingTurnId: (id: string | null) => void;
+  addPronunciation: (result: PronunciationResult) => void;
   reset: () => void;
 }
 
@@ -39,6 +42,7 @@ const initialState = {
   report: null,
   connected: false,
   readingTurnId: null,
+  pronunciationScores: [] as PronunciationResult[],
 };
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -65,5 +69,8 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   setReadingTurnId: (id) => set({ readingTurnId: id }),
 
-  reset: () => set(initialState),
+  addPronunciation: (result) =>
+    set((state) => ({ pronunciationScores: [...state.pronunciationScores, result] })),
+
+  reset: () => set({ ...initialState, pronunciationScores: [] }),
 }));

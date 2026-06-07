@@ -34,21 +34,21 @@ describe('levelInfo', () => {
     const l = levelInfo(0);
     expect(l.level).toBe(1);
     expect(l.progress).toBe(0);
-    expect(l.nextLevelXp).toBe(100);
+    expect(l.nextLevelXp).toBe(60);
   });
 
-  it('阈值边界：100 XP 升到 2 级', () => {
-    expect(levelInfo(99).level).toBe(1);
-    expect(levelInfo(100).level).toBe(2);
-    expect(levelInfo(299).level).toBe(2);
-    expect(levelInfo(300).level).toBe(3);
+  it('阈值边界：60 XP 升到 2 级', () => {
+    expect(levelInfo(59).level).toBe(1);
+    expect(levelInfo(60).level).toBe(2);
+    expect(levelInfo(179).level).toBe(2);
+    expect(levelInfo(180).level).toBe(3);
   });
 
   it('级内进度计算正确', () => {
-    const l = levelInfo(200); // 2 级（100~300），级内 100/200
+    const l = levelInfo(120); // 2 级（60~180），级内 60/120
     expect(l.level).toBe(2);
-    expect(l.intoLevel).toBe(100);
-    expect(l.levelSpan).toBe(200);
+    expect(l.intoLevel).toBe(60);
+    expect(l.levelSpan).toBe(120);
     expect(l.progress).toBeCloseTo(0.5, 5);
   });
 
@@ -199,8 +199,8 @@ describe('evaluateAchievements', () => {
   });
 
   // 挑战
-  it('困难模式 5 次解锁 challenger', () => {
-    const hard = Array.from({ length: 5 }, (_, i) => mk(`h${i}`, 70, 'interview', Date.now(), { difficulty: 'hard' }));
+  it('高级模式 5 次解锁 challenger', () => {
+    const hard = Array.from({ length: 5 }, (_, i) => mk(`h${i}`, 70, 'interview', Date.now(), { difficulty: 'advanced' }));
     expect(evaluateAchievements(hard, 1).find((a) => a.id === 'challenger')?.unlocked).toBe(true);
     expect(evaluateAchievements(hard.slice(0, 4), 1).find((a) => a.id === 'challenger')?.unlocked).toBe(false);
   });

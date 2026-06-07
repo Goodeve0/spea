@@ -64,7 +64,15 @@ export default function Report() {
   const [celebrateLevel, setCelebrateLevel] = useState<number | null>(null);
 
   const hasSpeech = !!report && (report.hasUserSpeech ?? report.annotatedTurns.some((t) => t.role === 'user'));
-  const overallScore = report ? avg(Object.values(report.radar)) : 0;
+  // 发音未评测（无录音）时，综合分排除发音维度，避免文字模式被发音拉低/虚高
+  const pronUnassessed = !!report && report.pronunciationSource === 'none';
+  const overallScore = report
+    ? avg(
+        (Object.entries(report.radar) as [keyof RadarScores, number][])
+          .filter(([key]) => !(pronUnassessed && key === 'pronunciation'))
+          .map(([, v]) => v),
+      )
+    : 0;
 
   // 报告生成后：有发言则落库（登录→服务端，游客→本地），并拉取成长曲线数据
   useEffect(() => {
@@ -141,11 +149,14 @@ export default function Report() {
     );
   }
 
-  const chartData = (Object.entries(report.radar) as [keyof RadarScores, number][]).map(([key, value]) => ({
-    subject: RADAR_LABELS[key],
-    value,
-    fullMark: 100,
-  }));
+  const chartData = (Object.entries(report.radar) as [keyof RadarScores, number][])
+    // 发音未评测时，雷达图不展示发音轴（诚实，不画虚假数据）
+    .filter(([key]) => !(pronUnassessed && key === 'pronunciation'))
+    .map(([key, value]) => ({
+      subject: RADAR_LABELS[key],
+      value,
+      fullMark: 100,
+    }));
   const overallLevel = getScoreLevel(overallScore);
 
   return (
@@ -208,12 +219,34 @@ export default function Report() {
           <div className="space-y-4">
             {(Object.entries(report.radar) as [keyof RadarScores, number][]).map(([key, value]) => {
               const level = getScoreLevel(value);
+              const isPron = key === 'pronunciation';
+              // 发音未评测：展示"未评测"占位，不画进度条
+              if (isPron && pronUnassessed) {
+                return (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-ink font-medium flex items-center gap-2">
+                        {(() => { const Ic = RADAR_ICON_COMPONENTS[key]; return Ic ? <Ic size={16} /> : null; })()}
+                        {RADAR_LABELS[key]}
+                        <span className="text-[10px] font-bold text-sub bg-canvas px-1.5 py-0.5 rounded-full">未评测</span>
+                      </span>
+                      <span className="text-xs text-sub">本次无录音</span>
+                    </div>
+                    <div className="w-full bg-canvas rounded-full h-2.5 opacity-50">
+                      <div className="h-2.5 rounded-full bg-line" style={{ width: '100%' }} />
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <div key={key}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-ink font-medium flex items-center gap-2">
                       {(() => { const Ic = RADAR_ICON_COMPONENTS[key]; return Ic ? <Ic size={16} /> : null; })()}
                       {RADAR_LABELS[key]}
+                      {isPron && report.pronunciationSource === 'acoustic' && (
+                        <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full" title="基于讯飞声学引擎的真实发音评测">🎙️ 声学评测</span>
+                      )}
                     </span>
                     <span className={`text-sm font-extrabold ${level.color}`}>{value}</span>
                   </div>
@@ -227,6 +260,34 @@ export default function Report() {
               );
             })}
           </div>
+
+          {/* 声学评测：薄弱词提示 */}
+          {report.pronunciationSource === 'acoustic' &&
+            report.pronunciationWordScores &&
+            report.pronunciationWordScores.length > 0 && (
+              <div className="mt-5 pt-4 border-t border-line">
+                <h3 className="text-sm font-extrabold text-ink mb-2 flex items-center gap-1.5">
+                  🎯 发音可改进的词
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {report.pronunciationWordScores
+                    .filter((w) => w.score < 80)
+                    .slice(0, 6)
+                    .map((w, i) => (
+                      <span
+                        key={i}
+                        className="px-2.5 py-1 rounded-xl bg-danger/10 text-danger text-sm font-medium"
+                        title={`发音分 ${w.score}`}
+                      >
+                        {w.word} <span className="text-xs opacity-70">{w.score}</span>
+                      </span>
+                    ))}
+                  {report.pronunciationWordScores.filter((w) => w.score < 80).length === 0 && (
+                    <span className="text-sm text-sub">每个词发音都不错，继续保持！</span>
+                  )}
+                </div>
+              </div>
+            )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
