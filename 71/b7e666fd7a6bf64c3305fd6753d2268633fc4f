@@ -1,0 +1,41 @@
+web/src/components/BuddyToast.tsx
+  s_87206fd6839359::t_0a759364e0e686 1-47
+web/src/components/BuddyInboxPoller.tsx
+  s_87206fd6839359::t_ee274c14dd453d 1-75
+web/src/App.tsx
+  s_87206fd6839359::t_647c69a02e33be 37-39
+  s_87206fd6839359::t_36da6e6f2b54d9 6
+  s_87206fd6839359::t_677cd7846a1689 4-5
+web/src/store/buddy.test.ts
+  s_87206fd6839359::t_d3b6262ef7d1ae 1-55
+web/src/pages/Buddies.tsx
+  s_87206fd6839359::t_415f25eb4e712a 5,7,17-21,27-32,83-160,166,171,195-209,319,321-326,340,385-391
+web/src/store/buddy.ts
+  s_87206fd6839359::t_92a0ea460ef3e6 2,12,24-28,35-36,52,55-72,81-82,185,188-199,218-245
+web/src/pages/LiveRoom.tsx
+  s_87206fd6839359::t_b143fb5cc1dfdb 56-58
+  s_87206fd6839359::t_97c56f773f499b 108-109,111
+  s_87206fd6839359::t_336272988139e0 310-316
+web/src/components/BuddyInviteBanner.tsx
+  s_87206fd6839359::t_7ff155b1b0faa9 1-51
+server/src/http/room-invite.store.test.ts
+  s_87206fd6839359::t_61316e6664b50c 1-56
+server/src/http/room-invite.store.ts
+  s_87206fd6839359::t_b16aabdd3f3c6d 6-7,16-20,22-25,29,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "71b7e666fd7a6bf64c3305fd6753d2268633fc4f",
+  "prompts": {},
+  "sessions": {
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
