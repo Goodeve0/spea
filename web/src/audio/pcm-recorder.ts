@@ -179,3 +179,39 @@ export function floatToInt16(input: Float32Array): Int16Array {
   }
   return out;
 }
+
+/**
+ * 把 16bit 单声道 Int16 PCM 封装成可播放的 WAV Blob（供录音回放）。
+ * @param pcm Int16 PCM 采样
+ * @param sampleRate 采样率（默认 16000，与采集一致）
+ */
+export function pcmToWavBlob(pcm: Int16Array, sampleRate = 16000): Blob {
+  const dataLength = pcm.length * 2; // 16bit = 2 bytes/sample
+  const buffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(buffer);
+
+  const writeStr = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true); // PCM chunk size
+  view.setUint16(20, 1, true); // audio format = PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // byte rate
+  view.setUint16(32, 2, true); // block align
+  view.setUint16(34, 16, true); // bits per sample
+  writeStr(36, 'data');
+  view.setUint32(40, dataLength, true);
+
+  let offset = 44;
+  for (let i = 0; i < pcm.length; i++, offset += 2) {
+    view.setInt16(offset, pcm[i], true);
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
