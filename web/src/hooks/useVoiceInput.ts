@@ -5,26 +5,30 @@
  *  - BrowserSpeechRecognition（连续识别、interim/final 结果）
  *  - SilenceDetector（VAD 静默自动停止）
  *  - MediaStream 获取与释放
- *  - pendingTranscript / lastInterim 拼接
+ *  - committedWords / interimWords 词数组拼接（增量预览）
  *
  * 对外暴露：
  *  - isSupported        — 当前浏览器是否支持 Web Speech API
- *  - recordingPreview   — 实时展示字符串（final + interim 拼合）
+ *  - recordingPreview   — 实时展示字符串（committed + interim 词拼合，向后兼容）
+ *  - previewWords       — 当前预览的词数组 { committed, interim }，渲染层用稳定 key 增量拼接
  *  - recordingHasInterim— 当前是否有 interim 文本（控制 "..." 动画）
  *  - startRecording()   — 请求麦克风 + 启动识别 + VAD
  *  - stopRecording()    — 手动停止，收集最终文本并回调 onTranscript
  *
  * 使用方注入：
- *  - onTranscript(text)   — 录音结束且有有效文本时回调（由 Conversation 发给 LLM）
+ *  - onTranscript(text)   — 录音结束且有有效文本时回调（已规范化：句首大写 + 句末标点）
  *  - onAudio(pcm, text)   — 录音结束且采集到 PCM 时回调（供发音评测；不支持/空则不触发）
  *  - onUnsupported()      — 浏览器不支持语音时回调（切换到文字模式）
  *  - beforeStart()        — 每次开始录音前的钩子（如停止 TTS 播放）
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BrowserSpeechRecognition } from '../audio/speech-recognition';
-import { SilenceDetector } from '../audio/silence-detector';
-import { PcmRecorder, pcmToWavBlob } from '../audio/pcm-recorder';
+
+import { normalizeTranscript } from '@speak-coach/shared';
+
 import { transcribeAudio } from '../api/asr';
+import { PcmRecorder, pcmToWavBlob } from '../audio/pcm-recorder';
+import { SilenceDetector } from '../audio/silence-detector';
+import { BrowserSpeechRecognition } from '../audio/speech-recognition';
 import { useSessionStore } from '../store/session';
 
 interface UseVoiceInputOptions {
@@ -37,9 +41,18 @@ interface UseVoiceInputOptions {
   useServerAsr?: boolean;
 }
 
+export interface PreviewWords {
+  /** 已 final 化的词（按出现顺序） */
+  committed: string[];
+  /** 当前 interim 假说的词（每次 interim 推送整体替换） */
+  interim: string[];
+}
+
 export interface VoiceInputHandle {
   isSupported: boolean;
   recordingPreview: string;
+  /** 增量渲染用：committed + interim 词数组；committed 前缀稳定，interim 整体替换 */
+  previewWords: PreviewWords;
   recordingHasInterim: boolean;
   /** 录音停止后正在用 SenseVoice 转写中（用于显示"识别中…"） */
   isTranscribing: boolean;
@@ -47,6 +60,14 @@ export interface VoiceInputHandle {
   stopRecording: () => void;
   /** 组件卸载时调用，释放所有媒体资源 */
   cleanup: () => void;
+}
+
+const EMPTY_PREVIEW: PreviewWords = { committed: [], interim: [] };
+
+function splitWords(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  return trimmed.split(/\s+/);
 }
 
 export function useVoiceInput({
@@ -58,6 +79,7 @@ export function useVoiceInput({
 }: UseVoiceInputOptions): VoiceInputHandle {
   const { setRecording } = useSessionStore();
   const [recordingPreview, setRecordingPreview] = useState('');
+  const [previewWords, setPreviewWords] = useState<PreviewWords>(EMPTY_PREVIEW);
   const [recordingHasInterim, setRecordingHasInterim] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
 
@@ -69,8 +91,10 @@ export function useVoiceInput({
   /** PCM 录制器（发音评测用），仅在支持 AudioWorklet 时启用 */
   const pcmRecorderRef = useRef<PcmRecorder | null>(null);
 
-  const pendingTranscriptRef = useRef('');
-  const lastInterimRef = useRef('');
+  /** 已 final 化的词，按出现顺序追加 */
+  const committedWordsRef = useRef<string[]>([]);
+  /** 当前 interim 词数组，每次 interim 整体替换 */
+  const interimWordsRef = useRef<string[]>([]);
   const hasSpokenRef = useRef(false);
   const finishingRef = useRef(false);
 
@@ -88,16 +112,16 @@ export function useVoiceInput({
   }, []);
 
   const getCombinedTranscript = (): string => {
-    const pending = pendingTranscriptRef.current.trim();
-    const interim = lastInterimRef.current.trim();
-    if (pending && interim) return `${pending} ${interim}`;
-    return pending || interim;
+    const all = [...committedWordsRef.current, ...interimWordsRef.current];
+    return all.join(' ');
   };
 
   const syncPreview = (): void => {
-    const interim = lastInterimRef.current.trim();
-    setRecordingHasInterim(!!interim);
-    setRecordingPreview(getCombinedTranscript());
+    const committed = [...committedWordsRef.current];
+    const interim = [...interimWordsRef.current];
+    setPreviewWords({ committed, interim });
+    setRecordingHasInterim(interim.length > 0);
+    setRecordingPreview([...committed, ...interim].join(' '));
   };
 
   const cleanupMedia = useCallback((): void => {
@@ -125,10 +149,11 @@ export function useVoiceInput({
 
     cleanupMedia();
 
-    pendingTranscriptRef.current = '';
-    lastInterimRef.current = '';
+    committedWordsRef.current = [];
+    interimWordsRef.current = [];
     hasSpokenRef.current = false;
     setRecordingPreview('');
+    setPreviewWords(EMPTY_PREVIEW);
     setRecordingHasInterim(false);
     setRecording(false);
     finishingRef.current = false;
@@ -146,7 +171,9 @@ export function useVoiceInput({
         }
       }
 
-      let finalText = browserText;
+      // 服务端 ASR 走通：服务端已经做过 normalizeTranscript，直接采用。
+      // 失败 / 未启用：对浏览器拼出的 browserText 在前端做一次规范化作为兜底。
+      let finalText = normalizeTranscript(browserText);
       if (useServerAsr && pcm.length > 0) {
         setIsTranscribing(true);
         try {
@@ -181,11 +208,12 @@ export function useVoiceInput({
     beforeStart?.();
     cleanupMedia();
 
-    pendingTranscriptRef.current = '';
-    lastInterimRef.current = '';
+    committedWordsRef.current = [];
+    interimWordsRef.current = [];
     hasSpokenRef.current = false;
     finishingRef.current = false;
     setRecordingPreview('');
+    setPreviewWords(EMPTY_PREVIEW);
     setRecordingHasInterim(false);
     setRecording(true);
 
@@ -221,19 +249,22 @@ export function useVoiceInput({
 
       const offResult = recognition.onResult((result) => {
         if (result.isFinal) {
-          const chunk = result.text.trim();
-          if (chunk) {
+          const words = splitWords(result.text);
+          if (words.length > 0) {
             hasSpokenRef.current = true;
-            pendingTranscriptRef.current = pendingTranscriptRef.current
-              ? `${pendingTranscriptRef.current} ${chunk}`
-              : chunk;
+            committedWordsRef.current.push(...words);
           }
-          lastInterimRef.current = '';
+          interimWordsRef.current = [];
           syncPreview();
           silenceDetectorRef.current?.resetSilenceTimer();
-        } else if (result.text !== lastInterimRef.current) {
-          lastInterimRef.current = result.text;
-          if (result.text.trim()) hasSpokenRef.current = true;
+        } else {
+          const words = splitWords(result.text);
+          // 同前一次 interim 切词完全一致时跳过 setState，避免 React 重渲染抖动。
+          const prev = interimWordsRef.current;
+          const same = words.length === prev.length && words.every((w, i) => w === prev[i]);
+          if (same) return;
+          interimWordsRef.current = words;
+          if (words.length > 0) hasSpokenRef.current = true;
           syncPreview();
           silenceDetectorRef.current?.resetSilenceTimer();
         }
@@ -265,6 +296,7 @@ export function useVoiceInput({
   return {
     isSupported: recognitionRef.current?.isSupported() ?? false,
     recordingPreview,
+    previewWords,
     recordingHasInterim,
     isTranscribing,
     startRecording,

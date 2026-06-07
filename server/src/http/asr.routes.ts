@@ -1,6 +1,8 @@
 import { Router, type Request } from 'express';
 import express from 'express';
 
+import { normalizeTranscript } from '@speak-coach/shared';
+
 import { asyncHandler, HttpError } from './errors';
 
 /** 录音体积上限（WAV，约 2.5 分钟 16kHz） */
@@ -25,6 +27,9 @@ export function siliconflowTranscriber(): Transcriber {
     const form = new FormData();
     form.append('model', model);
     form.append('file', new Blob([ab], { type: 'audio/wav' }), 'audio.wav');
+    // 显式请求标点（SiliconFlow / SenseVoice 支持时生效；不支持则被忽略，由本地 normalizeTranscript 兜底）
+    form.append('enable_punctuation', 'true');
+    form.append('inverse_text_normalization', 'true');
 
     const res = await fetch(`${base}/audio/transcriptions`, {
       method: 'POST',
@@ -37,7 +42,7 @@ export function siliconflowTranscriber(): Transcriber {
       throw new HttpError(502, 'ASR_UPSTREAM', `ASR 上游失败 (${res.status}): ${detail.slice(0, 200)}`);
     }
     const data = (await res.json()) as { text?: string };
-    return cleanSenseVoiceText(data.text ?? '');
+    return normalizeTranscript(cleanSenseVoiceText(data.text ?? ''));
   };
 }
 
