@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import type { Server } from 'http';
 
+import { normalizeTranscript } from '@speak-coach/shared';
+
 import { createAsrRouter, cleanSenseVoiceText, type Transcriber } from './asr.routes';
 import { errorMiddleware } from './errors';
 
@@ -58,5 +60,29 @@ describe('cleanSenseVoiceText', () => {
     expect(cleanSenseVoiceText('Hello world.😊')).toBe('Hello world.');
     expect(cleanSenseVoiceText('<|en|><|HAPPY|>Nice to meet you')).toBe('Nice to meet you');
     expect(cleanSenseVoiceText('  hi   there  ')).toBe('hi there');
+  });
+});
+
+describe('siliconflow → cleanSenseVoiceText → normalizeTranscript pipeline', () => {
+  // 路由层 mock 的 transcribe 不经 siliconflowTranscriber，这里直接验证「清洗 + 规范化」的组合行为。
+  const pipeline = (raw: string): string => normalizeTranscript(cleanSenseVoiceText(raw));
+
+  it('补句首大写与句末点', () => {
+    expect(pipeline('holidays this is my first time to speak'))
+      .toBe('Holidays this is my first time to speak.');
+  });
+
+  it('剥控制标记和情感 emoji 后再规范化', () => {
+    expect(pipeline('<|en|><|NEUTRAL|>holidays this is my first time to speak😊'))
+      .toBe('Holidays this is my first time to speak.');
+  });
+
+  it('疑问词起句补问号', () => {
+    expect(pipeline('where are you from')).toBe('Where are you from?');
+  });
+
+  it('上游已带标点保持不动', () => {
+    expect(pipeline('Holidays, this is my first time to speak.'))
+      .toBe('Holidays, this is my first time to speak.');
   });
 });

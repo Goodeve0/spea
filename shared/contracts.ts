@@ -662,3 +662,5 @@ export namespace Api {
     invites: RoomInviteDTO[];
   }
 }
+
+export { normalizeTranscript } from './transcript-normalize';

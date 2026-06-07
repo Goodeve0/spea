@@ -274,7 +274,7 @@ export default function Conversation() {
   const {
     isSupported: speechSupported,
     recordingPreview,
-    recordingHasInterim,
+    previewWords,
     isTranscribing,
     startRecording: startVoice,
     stopRecording: stopVoice,
@@ -633,13 +633,20 @@ export default function Conversation() {
             </div>
           )}
 
-          {/* 录音中的识别预览 */}
-          {isRecording && recordingPreview && (
+          {/* 录音中的识别预览（增量逐词渲染：committed 前缀稳定，interim 整体替换） */}
+          {isRecording && (previewWords.committed.length > 0 || previewWords.interim.length > 0) && (
             <div className="flex justify-end items-center gap-2">
               <div className="max-w-[75%] px-4 py-2.5 rounded-2xl bg-indigo-100 text-indigo-900 rounded-br-md opacity-70">
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {recordingPreview}
-                  {recordingHasInterim && <span className="italic">...</span>}
+                  {previewWords.committed.map((word, i) => (
+                    <span key={`c-${i}`}>{word} </span>
+                  ))}
+                  {previewWords.interim.map((word, i) => (
+                    <span key={`i-${i}`} className="opacity-70">
+                      {word}{' '}
+                    </span>
+                  ))}
+                  {previewWords.interim.length > 0 && <span className="italic">...</span>}
                 </p>
               </div>
               <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-xs flex-shrink-0">
