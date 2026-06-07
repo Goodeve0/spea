@@ -15,6 +15,7 @@
   "dependencies": {
     "@ricky0123/vad-web": "^0.0.21",
     "@speak-coach/shared": "*",
+    "html2canvas": "^1.4.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.23.0",

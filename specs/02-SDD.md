@@ -16,6 +16,7 @@
 | 状态管理 | Zustand | latest |
 | 音频/VAD | Web Audio API + `@ricky0123/vad-web` | latest |
 | 图表 | Recharts | latest |
+| 报告导出 | html2canvas | latest（报告页 DOM 区域截图导出 PNG） |
 | 后端 | Node.js + NestJS（TypeScript） | Node 20 LTS |
 | 实时通信 | WebSocket（ws / socket.io） | - |
 | 数据库 | PostgreSQL（开发期可用 SQLite） | - |
