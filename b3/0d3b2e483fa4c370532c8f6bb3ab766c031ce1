@@ -1,0 +1,29 @@
+web/src/components/BuddyInboxPoller.tsx
+  s_8ea735aed46668::t_4245497c586a6a 4,11-13,25,54-66
+server/src/http/buddy.routes.ts
+  s_8ea735aed46668::t_4245497c586a6a 7,125-131,148-153
+web/src/pages/LiveRoom.tsx
+  s_8ea735aed46668::t_4245497c586a6a 13,108,111
+server/src/http/room-invite.store.ts
+  s_8ea735aed46668::t_4245497c586a6a 3,12,21,26,30-33,35-46,48
+web/src/store/buddy.ts
+  s_8ea735aed46668::t_4245497c586a6a 16,36-37,84,208-218,233-237,243,261
+server/src/http/room-invite.store.test.ts
+  s_8ea735aed46668::t_4245497c586a6a 7,23,28-29,59-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "b30d3b2e483fa4c370532c8f6bb3ab766c031ce1",
+  "prompts": {},
+  "sessions": {
+    "s_8ea735aed46668": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "45b5f341-1729-4fa8-8281-908385e5d986",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/iwn212cjpyff"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
