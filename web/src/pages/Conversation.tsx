@@ -154,18 +154,53 @@ export default function Conversation() {
     }
 
     const settings = useSettingsStore.getState();
-    const engine = getEngine(settings.ttsEngine) ?? getCurrentEngine();
+    const engineId = settings.ttsEngine;
+    const engine = getEngine(engineId) ?? getCurrentEngine();
     setReadingTurnId(turnId);
-    engine.speak(text, {
-      voice: settings.iflytekVoice,
-      onEnd: () => { setReadingTurnId(null); readingBusyRef.current = false; },
-      onError: (err) => {
-        console.error('[Conversation.handleReadAloud] tts error, turnId:', turnId, err);
+
+    // 浏览器引擎兜底：讯飞失败时回退；浏览器再失败则给出可见提示
+    const playBrowserFallback = () => {
+      const browser = getEngine('browser');
+      if (!browser) {
         setReadingTurnId(null);
         readingBusyRef.current = false;
+        setNotice('当前浏览器不支持朗读功能。');
+        return;
+      }
+      setReadingTurnId(turnId);
+      browser.speak(text, {
+        rate: settings.playbackSpeed,
+        onEnd: () => { setReadingTurnId(null); readingBusyRef.current = false; },
+        onError: (e) => {
+          console.error('[Conversation.handleReadAloud] browser fallback failed:', e);
+          setReadingTurnId(null);
+          readingBusyRef.current = false;
+          setNotice('朗读失败：浏览器语音合成不可用。请确认系统已安装英文语音，或刷新页面重试。');
+        },
+      });
+    };
+
+    engine.speak(text, {
+      voice: settings.iflytekVoice,
+      rate: settings.playbackSpeed,
+      onEnd: () => { setReadingTurnId(null); readingBusyRef.current = false; },
+      onError: (err) => {
+        console.error('[Conversation.handleReadAloud] tts error, engineId:', engineId, err);
+        if (engineId === 'iflytek') {
+          setIflytekLastError(err.message);
+          const isVoiceIssue = /11119|vcn|voice|发音人/i.test(err.message);
+          if (!isVoiceIssue) setIflytekDisabled(true);
+          stopAllTts();
+          playBrowserFallback();
+        } else {
+          // 已是浏览器引擎仍失败 → 可见提示，便于定位
+          setReadingTurnId(null);
+          readingBusyRef.current = false;
+          setNotice('朗读失败：浏览器语音合成不可用。请确认系统已安装英文语音，或刷新页面重试。');
+        }
       },
     });
-  }, [readingTurnId, setReadingTurnId, stopAllTts, isAiSpeaking, setAiSpeaking]);
+  }, [readingTurnId, setReadingTurnId, stopAllTts, isAiSpeaking, setAiSpeaking, setIflytekDisabled, setIflytekLastError]);
 
   // ── Hook：语音输入 ─────────────────────────────────────────────────────────
   const {
