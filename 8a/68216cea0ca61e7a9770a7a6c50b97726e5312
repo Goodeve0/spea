@@ -1,0 +1,19 @@
+openspec/specs/buddy-interaction/spec.md
+  s_87206fd6839359::t_0550b8b8ae2cbb 14-18,34-43,88-89,105-109,112-119,131-140,145-148,165-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "8a68216cea0ca61e7a9770a7a6c50b97726e5312",
+  "prompts": {},
+  "sessions": {
+    "s_87206fd6839359": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ff2fc6c6-3dfc-465b-a364-64ed8c1bbd79",
+        "model": "default"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
