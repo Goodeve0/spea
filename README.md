@@ -2,7 +2,8 @@
 
 一个基于 Node.js + WebSocket + React 的 AI 英语口语陪练工具。在「面试 / 点餐 / 会议 / 雅思口语」等场景里跟 AI 对话，获得发音评测、语法纠正与课后报告。
 
-> 在线体验：<https://spea.xiaoyangxiaozhang.xyz>
+> - 在线体验：<https://spea.xiaoyangxiaozhang.xyz>
+> - 演示视频：<https://www.bilibili.com/video/BV1LUE86oE7b/?vd_source=ea4f9691ba92f806edac69ffc8270565>
 
 ---
 
