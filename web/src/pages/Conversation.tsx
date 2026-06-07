@@ -88,46 +88,57 @@ export default function Conversation() {
     readingBusyRef.current = false;
   }, [stopAllTts, setAiSpeaking, setReadingTurnId]);
 
-  const speakReply = useCallback((turnId: string, text: string, onEnd?: () => void) => {
-    stopAllTts();
-    const speakEpoch = interruptEpochRef.current;
-    const settings = useSettingsStore.getState();
-    const engineId = settings.ttsEngine;
-    const engine = getEngine(engineId) ?? getCurrentEngine();
+  const speakReply = useCallback(
+    (turnId: string, text: string, onEnd?: () => void, onStart?: () => void) => {
+      stopAllTts();
+      const speakEpoch = interruptEpochRef.current;
+      const settings = useSettingsStore.getState();
+      const engineId = settings.ttsEngine;
+      const engine = getEngine(engineId) ?? getCurrentEngine();
 
-    setReadingTurnId(turnId);
-    engine.speak(text, {
-      voice: settings.iflytekVoice,
-      onEnd: () => {
-        if (speakEpoch !== interruptEpochRef.current) return;
-        setReadingTurnId(null);
-        onEnd?.();
-      },
-      onError: (err) => {
-        if (speakEpoch !== interruptEpochRef.current) return;
-        console.error('[Conversation.speakReply] tts error, engineId:', engineId, err);
-        setReadingTurnId(null);
-        if (engineId !== 'iflytek') return;
+      setReadingTurnId(turnId);
+      engine.speak(text, {
+        voice: settings.iflytekVoice,
+        onStart: () => {
+          if (speakEpoch !== interruptEpochRef.current) return;
+          onStart?.();
+        },
+        onEnd: () => {
+          if (speakEpoch !== interruptEpochRef.current) return;
+          setReadingTurnId(null);
+          onEnd?.();
+        },
+        onError: (err) => {
+          if (speakEpoch !== interruptEpochRef.current) return;
+          console.error('[Conversation.speakReply] tts error, engineId:', engineId, err);
+          setReadingTurnId(null);
+          if (engineId !== 'iflytek') return;
 
-        setIflytekLastError(err.message);
-        const isVoiceIssue = /11119|vcn|voice|发音人/i.test(err.message);
-        if (!isVoiceIssue) setIflytekDisabled(true);
+          setIflytekLastError(err.message);
+          const isVoiceIssue = /11119|vcn|voice|发音人/i.test(err.message);
+          if (!isVoiceIssue) setIflytekDisabled(true);
 
-        if (speakEpoch !== interruptEpochRef.current) return;
-        stopAllTts();
-        if (speakEpoch !== interruptEpochRef.current) return;
-        // 浏览器引擎兜底
-        setReadingTurnId(turnId);
-        getEngine('browser')?.speak(text, {
-          onEnd: () => {
-            if (speakEpoch !== interruptEpochRef.current) return;
-            setReadingTurnId(null);
-            onEnd?.();
-          },
-        });
-      },
-    });
-  }, [stopAllTts, setReadingTurnId, setIflytekDisabled, setIflytekLastError]);
+          if (speakEpoch !== interruptEpochRef.current) return;
+          stopAllTts();
+          if (speakEpoch !== interruptEpochRef.current) return;
+          // 浏览器引擎兜底
+          setReadingTurnId(turnId);
+          getEngine('browser')?.speak(text, {
+            onStart: () => {
+              if (speakEpoch !== interruptEpochRef.current) return;
+              onStart?.();
+            },
+            onEnd: () => {
+              if (speakEpoch !== interruptEpochRef.current) return;
+              setReadingTurnId(null);
+              onEnd?.();
+            },
+          });
+        },
+      });
+    },
+    [stopAllTts, setReadingTurnId, setIflytekDisabled, setIflytekLastError],
+  );
 
   /** 朗读指定消息（按 turnId 切换播放/停止） */
   const handleReadAloud = useCallback((turnId: string, text: string) => {
@@ -260,7 +271,27 @@ export default function Conversation() {
       const greetingId = `greeting-${Date.now()}`;
       addTurn({ id: greetingId, sessionId: 'local-session', role: 'ai', text: greeting, timestamp: Date.now() });
       setAiSpeaking(true);
-      speakReply(greetingId, greeting, () => setAiSpeaking(false));
+
+      // 尝试自动朗读开场白；浏览器自动播放策略可能因跨页跳转丢失 user-gesture
+      // 导致静音失败 → 1.8s 内未触发 onStart 视为失败：清状态 + 显示气泡的朗读按钮兜底
+      let started = false;
+      const fallbackTimer = window.setTimeout(() => {
+        if (started) return;
+        stopAllTts();
+        setAiSpeaking(false);
+        setReadingTurnId(null);
+        setNotice('点击开场白下方的「🔈 朗读」按钮即可让 AI 开口（浏览器需要用户首次交互后才允许自动发声）。');
+      }, 1800);
+
+      speakReply(
+        greetingId,
+        greeting,
+        () => setAiSpeaking(false),
+        () => {
+          started = true;
+          window.clearTimeout(fallbackTimer);
+        },
+      );
     }
 
     return () => {
