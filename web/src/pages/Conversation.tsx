@@ -7,7 +7,7 @@ import type { Difficulty } from '@speak-coach/shared';
 import { getEngine, getCurrentEngine } from '../audio/tts-engine';
 import { initTtsEngines } from '../audio/tts-init';
 import SettingsPanel from '../components/SettingsPanel';
-import { generateReport } from '../llm/report-generator';
+import { generateReport, mergeAcousticScores } from '../llm/report-generator';
 import { stripMarkdown } from '../llm/strip-markdown';
 import { useSessionStore } from '../store/session';
 import { useSettingsStore } from '../store/settings';
@@ -15,6 +15,7 @@ import { useStallDetector } from '../hooks/useStallDetector';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useConversationLlm } from '../hooks/useConversationLlm';
 import { generateHints, type Hints } from '../llm/hint-generator';
+import { assessPronunciation } from '../api/pronunciation';
 
 initTtsEngines();
 
@@ -46,6 +47,7 @@ export default function Conversation() {
     isAiSpeaking, setAiSpeaking, currentAiText,
     resetAiText, setReport,
     readingTurnId, setReadingTurnId,
+    addPronunciation,
   } = useSessionStore();
 
   const setIflytekDisabled = useSettingsStore((s) => s.setIflytekDisabled);
@@ -175,6 +177,18 @@ export default function Conversation() {
     cleanup: cleanupVoice,
   } = useVoiceInput({
     onTranscript: (text) => void handleUserMessage(text),
+    onAudio: (pcm, transcript) => {
+      // onTranscript 已同步创建用户 turn，这里按文本匹配回填 turnId
+      const turns = useSessionStore.getState().turns;
+      const userTurn = [...turns].reverse().find(
+        (t) => t.role === 'user' && t.text === transcript,
+      );
+      const turnId = userTurn?.id ?? '';
+      // 异步评测，不阻塞对话；成功则累积声学分
+      void assessPronunciation(pcm, transcript, turnId).then((result) => {
+        if (result) addPronunciation(result);
+      });
+    },
     onUnsupported: () => {
       setInputMode('text');
       setNotice('当前浏览器不支持语音识别，已自动切换到文字模式。如需语音，请使用 Chrome。');
@@ -249,7 +263,14 @@ export default function Conversation() {
     setNotice('正在生成报告…');
     try {
       const latestTurns = useSessionStore.getState().turns;
-      const report = await generateReport(latestTurns, 'local-session');
+      const baseReport = await generateReport(latestTurns, 'local-session');
+      // 用真实声学评测分覆盖 LLM 估算的发音分（无录音则标记 'none'）
+      const acoustic = useSessionStore.getState().pronunciationScores.map((p) => ({
+        accuracy: p.accuracy,
+        fluency: p.fluency,
+        wordScores: p.wordScores,
+      }));
+      const report = mergeAcousticScores(baseReport, acoustic);
       setReport(report as never);
       navigate('/report');
     } catch (err) {

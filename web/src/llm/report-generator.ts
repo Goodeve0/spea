@@ -30,6 +30,15 @@ export interface GeneratedReport {
   cefrEstimate?: string;
   /** 本次是否有用户发言（无则不计入成长、不展示分数） */
   hasUserSpeech: boolean;
+  /**
+   * 发音分数据来源：
+   * - 'acoustic'：来自讯飞 ISE 真实声学评测（可信）
+   * - 'none'：本次无录音（文字模式 / 不支持），发音维度未评测，不计入综合分
+   * 缺省视为 'none'（向后兼容旧报告）。
+   */
+  pronunciationSource?: 'acoustic' | 'none';
+  /** 声学评测的逐词分数（仅 acoustic 时有值，供展示薄弱词） */
+  pronunciationWordScores?: Array<{ word: string; score: number }>;
 }
 
 const SYSTEM_PROMPT = `You are an English speaking coach. Analyze the student's conversation and generate a performance report.
@@ -203,4 +212,51 @@ function normalizeCefr(v: string | undefined): string | undefined {
   if (typeof v !== 'string') return undefined;
   const m = v.toUpperCase().match(/\b(A1|A2|B1|B2|C1|C2)\b/);
   return m ? m[1] : undefined;
+}
+
+/** 单轮声学评测结果（仅取本函数关心的字段） */
+export interface AcousticScore {
+  accuracy: number;
+  fluency: number;
+  wordScores: Array<{ word: string; score: number }>;
+}
+
+/**
+ * 用真实声学评测分覆盖 LLM 估算的发音分。
+ *
+ * - 有声学分：发音维度取各轮 accuracy 平均（四舍五入），并把流利度也用声学 fluency 融合
+ *   （声学与 LLM 各半，兼顾韵律与内容），标记来源为 'acoustic'，汇总逐词最差分供展示。
+ * - 无声学分：保持 LLM 报告不变，仅标记来源为 'none'（报告页据此显示"未评测"且不计入综合分）。
+ *
+ * 纯函数，不改入参，返回新报告对象。
+ */
+export function mergeAcousticScores(
+  report: GeneratedReport,
+  scores: AcousticScore[],
+): GeneratedReport {
+  if (scores.length === 0) {
+    return { ...report, pronunciationSource: 'none' };
+  }
+
+  const acousticAccuracy = avg(scores.map((s) => s.accuracy));
+  const acousticFluency = avg(scores.map((s) => s.fluency));
+  // 流利度：声学与 LLM 各占一半（声学反映语速/停顿，LLM 反映表达连贯）
+  const mergedFluency = Math.round((acousticFluency + report.radar.fluency) / 2);
+
+  const wordScores = scores
+    .flatMap((s) => s.wordScores)
+    .filter((w) => w.word && Number.isFinite(w.score))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 8);
+
+  return {
+    ...report,
+    radar: {
+      ...report.radar,
+      pronunciation: acousticAccuracy,
+      fluency: mergedFluency,
+    },
+    pronunciationSource: 'acoustic',
+    pronunciationWordScores: wordScores,
+  };
 }

@@ -136,6 +136,14 @@ export interface Report {
   cefrEstimate?: string;
   /** 本次是否有用户发言（无则不计入成长曲线） */
   hasUserSpeech?: boolean;
+  /**
+   * 发音分数据来源：
+   * - 'acoustic'：讯飞 ISE 真实声学评测（可信）
+   * - 'none'：本次无录音（文字模式/不支持），发音维度未评测，不计入综合分
+   */
+  pronunciationSource?: 'acoustic' | 'none';
+  /** 声学评测逐词分数（仅 acoustic 时有值，按分数升序，供展示薄弱词） */
+  pronunciationWordScores?: Array<{ word: string; score: number }>;
 }
 
 // -------------------- WebSocket 消息契约 --------------------
