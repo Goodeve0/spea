@@ -1,0 +1,28 @@
+docker-compose.yml
+  s_8ea735aed46668::t_9e2a85aee1bd48 1-2,16,31
+DEPLOY.md
+  s_8ea735aed46668::t_714f153689de7a 17-18
+  s_8ea735aed46668::t_fb1a4bb6419dca 136-265
+scripts/backup-db.sh
+  s_8ea735aed46668::t_fcfe89f58b9bc7 1-77
+scripts/migrate-db-volume-to-bind.sh
+  s_8ea735aed46668::t_0dcbe7d4f1b5e4 1-131
+openspec/specs/database-hosting/spec.md
+  s_8ea735aed46668::t_0f418b7baf54a7 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "a82490a35e462e4255909a05fad8989a686a3630",
+  "prompts": {},
+  "sessions": {
+    "s_8ea735aed46668": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "45b5f341-1729-4fa8-8281-908385e5d986",
+        "model": "global.anthropic.claude-opus-4-7"
+      },
+      "human_author": "jiangtf <jiangtf@example.com>"
+    }
+  }
+}
