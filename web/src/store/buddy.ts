@@ -1,5 +1,5 @@
 /**
- * 瓜友状态：匹配 / 邀请 / 关系 / 贴纸 / 排行 + profile 同步。
+ * 瓜友状态：匹配 / 邀请 / 关系 / 贴纸 / 排行 + profile 同步 + 全局通知。
  * 仅登录用户可用；token 取自 auth store。
  */
 import { create } from 'zustand';
@@ -9,6 +9,7 @@ import type {
   BuddyRequestDTO,
   EncouragementDTO,
   RankingEntry,
+  RoomInviteDTO,
   StickerKey,
 } from '@speak-coach/shared';
 
@@ -20,12 +21,19 @@ function token(): string | null {
   return useAuthStore.getState().token;
 }
 
+export interface BuddyToastItem {
+  id: string;
+  message: string;
+}
+
 interface BuddyState {
   matches: BuddyCard[];
   requests: BuddyRequestDTO[];
   buddies: BuddyRelation[];
   encouragements: EncouragementDTO[];
   ranking: RankingEntry[];
+  pendingRoomInvites: RoomInviteDTO[];
+  toasts: BuddyToastItem[];
   /** 本次会话内已发出邀请的用户 id（用于在发现列表上显示"已邀请·待接受"） */
   invitedIds: string[];
   loading: boolean;
@@ -41,9 +49,27 @@ interface BuddyState {
   accept: (requestId: string) => Promise<void>;
   decline: (requestId: string) => Promise<void>;
   removeBuddy: (buddyId: string) => Promise<void>;
-  sendSticker: (toUserId: string, key: StickerKey) => Promise<void>;
+  sendSticker: (toUserId: string, key: StickerKey, displayName?: string) => Promise<void>;
   sendRoomInvite: (toUserId: string, roomId: string) => Promise<void>;
   syncProfile: () => Promise<void>;
+  mergeRoomInvites: (incoming: RoomInviteDTO[]) => void;
+  dismissRoomInvite: (roomId: string) => void;
+  showToast: (message: string) => void;
+  removeToast: (id: string) => void;
+  resetInbox: () => void;
+}
+
+/** 按 roomId 合并邀请（后者覆盖） */
+export function mergeRoomInviteList(
+  existing: RoomInviteDTO[],
+  incoming: RoomInviteDTO[],
+): RoomInviteDTO[] {
+  if (incoming.length === 0) return existing;
+  const map = new Map(existing.map((i) => [i.roomId, i]));
+  for (const inv of incoming) {
+    map.set(inv.roomId, inv);
+  }
+  return [...map.values()];
 }
 
 export const useBuddyStore = create<BuddyState>((set, get) => ({
@@ -52,6 +78,8 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   buddies: [],
   encouragements: [],
   ranking: [],
+  pendingRoomInvites: [],
+  toasts: [],
   invitedIds: [],
   loading: false,
   error: null,
@@ -62,7 +90,6 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const { candidates } = await api.buddy.matches(t, filters);
-      // 后端已排除已邀请者；重载时清空本地"已邀请"标记，保持一致
       set({ matches: candidates, invitedIds: [] });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : '加载失败' });
@@ -129,7 +156,6 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     const t = token();
     if (!t) return;
     await api.buddy.sendRequest(t, toUserId);
-    // 邀请后保留卡片，标记为"已邀请·待接受"，给出明确反馈（不再凭空消失）
     if (!get().invitedIds.includes(toUserId)) {
       set({ invitedIds: [...get().invitedIds, toUserId] });
     }
@@ -156,11 +182,21 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     await Promise.all([get().loadBuddies(), get().loadRanking()]);
   },
 
-  sendSticker: async (toUserId, key) => {
+  sendSticker: async (toUserId, key, displayName) => {
     const t = token();
     if (!t) return;
-    await api.buddy.sendEncouragement(t, toUserId, key);
-    await get().loadBuddies();
+    const name =
+      displayName ??
+      get().buddies.find((b) => b.card.userId === toUserId)?.card.displayName ??
+      '瓜友';
+    try {
+      await api.buddy.sendEncouragement(t, toUserId, key);
+      await get().loadBuddies();
+      get().showToast(`已发送给 ${name}`);
+    } catch {
+      get().showToast('发送失败，请重试');
+      throw new Error('send sticker failed');
+    }
   },
 
   sendRoomInvite: async (toUserId, roomId) => {
@@ -178,5 +214,34 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     } catch {
       // 同步失败不阻断
     }
+  },
+
+  mergeRoomInvites: (incoming) => {
+    set((s) => ({
+      pendingRoomInvites: mergeRoomInviteList(s.pendingRoomInvites, incoming),
+    }));
+  },
+
+  dismissRoomInvite: (roomId) => {
+    set((s) => ({
+      pendingRoomInvites: s.pendingRoomInvites.filter((i) => i.roomId !== roomId),
+    }));
+  },
+
+  showToast: (message) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    set((s) => ({
+      toasts: [...s.toasts, { id, message }].slice(-3),
+    }));
+  },
+
+  removeToast: (id) => {
+    set((s) => ({
+      toasts: s.toasts.filter((t) => t.id !== id),
+    }));
+  },
+
+  resetInbox: () => {
+    set({ pendingRoomInvites: [], toasts: [] });
   },
 }));

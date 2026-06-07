@@ -53,6 +53,9 @@ export default function LiveRoom() {
 
   const scenarioId = (location.state as { scenarioId?: string } | null)?.scenarioId ?? 'restaurant';
   const scenarioTitle = SCENARIO_TITLE[scenarioId] ?? scenarioId;
+  const roomState = location.state as { buddyName?: string; inviteUserId?: string } | null;
+  const inviteBuddyName = roomState?.buddyName;
+  const inviteUserId = roomState?.inviteUserId;
 
   const aiBufRef = useRef('');
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -102,10 +105,10 @@ export default function LiveRoom() {
           setRoomId(p.roomId);
           window.history.replaceState(null, '', `/room/${p.roomId}`);
           // 创建后邀请指定瓜友
-          const inviteUserId = (location.state as { inviteUserId?: string } | null)?.inviteUserId;
-          if (inviteUserId) {
+          const inviteUserIdFromState = (location.state as { inviteUserId?: string } | null)?.inviteUserId;
+          if (inviteUserIdFromState) {
             import('../api/client').then(({ api }) => {
-              void api.buddy.sendRoomInvite(token, inviteUserId, p.roomId);
+              void api.buddy.sendRoomInvite(token, inviteUserIdFromState, p.roomId);
             });
           }
           setStatus('waiting');
@@ -304,7 +307,13 @@ export default function LiveRoom() {
           <button onClick={handleEnd} className="text-sm font-bold text-danger px-2 py-1">结束</button>
         </div>
         <div className="text-center text-xs font-bold text-primary-dark pb-1.5">
-          {scenarioTitle} · {status === 'waiting' ? '等待搭子加入…' : isMyTurn ? '轮到你说啦' : `等待 ${peer?.displayName ?? '搭子'} 发言`}
+          {scenarioTitle} · {status === 'waiting' && inviteUserId && inviteBuddyName
+            ? `已邀请 ${inviteBuddyName}，等待 TA 加入…`
+            : status === 'waiting'
+              ? '等待搭子加入…'
+              : isMyTurn
+                ? '轮到你说啦'
+                : `等待 ${peer?.displayName ?? '搭子'} 发言`}
         </div>
       </nav>
 

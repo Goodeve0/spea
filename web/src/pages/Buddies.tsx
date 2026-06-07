@@ -2,22 +2,32 @@
  * 瓜友页：发现（匹配 + 待处理邀请）/ 我的瓜友（贴纸 + 约一把 + 解除）/ 排行。
  * 仅登录用户可用；游客引导登录。
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { STICKERS, type BuddyCard as BuddyCardT, type RadarScores, type StickerKey } from '@speak-coach/shared';
+import { STICKERS, type BuddyCard as BuddyCardT, type Difficulty, type RadarScores, type StickerKey } from '@speak-coach/shared';
 
 import { useAuthStore } from '../store/auth';
 import { useBuddyStore } from '../store/buddy';
-import { api } from '../api/client';
 import { UserAvatar } from '../components/user-avatar';
 import type { AvatarKey } from '../store/settings';
 import { BuddyIcon, MelonIcon, StarIcon, BoltIcon } from '../components/icons';
 
 type Tab = 'discover' | 'mine' | 'ranking';
 
+interface RoomModalState {
+  userId: string;
+  buddyName: string;
+}
+
 const SCENARIO_LABEL: Record<string, string> = {
   interview: '面试', meeting: '会议', presentation: '演讲', restaurant: '餐厅',
   doctor: '看医生', shopping: '购物', hotel: '酒店', smalltalk: '闲聊', ielts: '雅思',
+};
+
+const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  beginner: '初级',
+  intermediate: '中级',
+  advanced: '高级',
 };
 
 function scenarioLabel(id: string): string {
@@ -70,41 +80,99 @@ function ScenarioChips({ ids }: { ids: string[] }) {
   );
 }
 
+function RoomInviteModal({
+  buddyName,
+  onClose,
+  onConfirm,
+}: {
+  buddyName: string;
+  onClose: () => void;
+  onConfirm: (scenarioId: string, difficulty: Difficulty) => void;
+}) {
+  const recentScenario = localStorage.getItem('scenarioId') ?? 'restaurant';
+  const savedDifficulty = (localStorage.getItem('difficulty') ?? 'beginner') as Difficulty;
+
+  const scenarioOptions = useMemo(() => {
+    const base = [
+      { id: recentScenario, label: `最近·${scenarioLabel(recentScenario)}` },
+      { id: 'restaurant', label: '餐厅' },
+      { id: 'interview', label: '面试' },
+    ];
+    const seen = new Set<string>();
+    return base.filter((o) => {
+      if (seen.has(o.id)) return false;
+      seen.add(o.id);
+      return true;
+    });
+  }, [recentScenario]);
+
+  const [scenarioId, setScenarioId] = useState(recentScenario);
+  const difficulty = savedDifficulty;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 px-4 pb-6 sm:pb-0">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-pop p-5">
+        <h2 className="text-lg font-extrabold text-ink mb-1">约 {buddyName} 双排</h2>
+        <p className="text-sub text-sm mb-4">选个场景，TA 收到邀请后可加入</p>
+
+        <div className="text-xs font-bold text-sub mb-2">场景</div>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {scenarioOptions.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => setScenarioId(o.id)}
+              className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-colors ${
+                scenarioId === o.id ? 'bg-primary text-white' : 'bg-canvas text-ink hover:bg-primary-light'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="text-xs font-bold text-sub mb-2">难度</div>
+        <p className="text-sm text-ink mb-5 px-3 py-2 bg-canvas rounded-xl">
+          {DIFFICULTY_LABEL[difficulty] ?? difficulty}
+          <span className="text-sub text-xs ml-2">（沿用当前默认）</span>
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl bg-canvas text-sub font-bold"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(scenarioId, difficulty)}
+            className="flex-1 py-2.5 rounded-xl bg-primary text-white font-extrabold border-b-4 border-primary-dark active:translate-y-0.5 active:border-b-0"
+          >
+            开始邀请
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Buddies() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const {
     matches, requests, buddies, ranking, invitedIds,
-    loadAll, invite, accept, decline, removeBuddy, sendSticker, sendRoomInvite,
+    loadAll, invite, accept, decline, removeBuddy, sendSticker,
   } = useBuddyStore();
 
   const [tab, setTab] = useState<Tab>('discover');
   const [stickerFor, setStickerFor] = useState<string | null>(null);
-  const [roomInvites, setRoomInvites] = useState<{ roomId: string; from: BuddyCardT }[]>([]);
+  const [roomModal, setRoomModal] = useState<RoomModalState | null>(null);
 
   useEffect(() => {
     if (!user) return;
     void loadAll();
-    // 轮询房间邀请
-    const token = useAuthStore.getState().token;
-    let alive = true;
-    const poll = async () => {
-      if (!token) return;
-      try {
-        const { invites } = await api.buddy.roomInvites(token);
-        if (alive && invites.length) {
-          setRoomInvites((prev) => [...prev, ...invites.map((i) => ({ roomId: i.roomId, from: i.from }))]);
-        }
-      } catch {
-        /* ignore */
-      }
-    };
-    void poll();
-    const timer = setInterval(poll, 5000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
   }, [user, loadAll]);
 
   // 游客引导登录
@@ -124,9 +192,21 @@ export default function Buddies() {
     );
   }
 
-  async function startRoom(buddyUserId: string) {
-    // 进入创建房间流程，并在建房后邀请该瓜友
-    navigate('/room/new', { state: { scenarioId: 'restaurant', difficulty: 'beginner', inviteUserId: buddyUserId } });
+  function startRoom(buddyUserId: string, buddyName: string) {
+    setRoomModal({ userId: buddyUserId, buddyName });
+  }
+
+  function confirmRoom(scenarioId: string, difficulty: Difficulty) {
+    if (!roomModal) return;
+    navigate('/room/new', {
+      state: {
+        scenarioId,
+        difficulty,
+        inviteUserId: roomModal.userId,
+        buddyName: roomModal.buddyName,
+      },
+    });
+    setRoomModal(null);
   }
 
   return (
@@ -134,33 +214,6 @@ export default function Buddies() {
       <h1 className="text-2xl font-extrabold text-ink mb-4 flex items-center gap-2">
         <BuddyIcon size={28} className="text-primary" /> 瓜友
       </h1>
-
-      {/* 房间邀请横幅 */}
-      {roomInvites.length > 0 && (
-        <div className="mb-4 space-y-2">
-          {roomInvites.map((inv) => (
-            <div key={inv.roomId} className="flex items-center gap-3 bg-accent/10 border border-accent/30 rounded-2xl px-4 py-3">
-              <UserAvatar avatarKey={(inv.from.avatarKey as AvatarKey) ?? 'melon'} size={36} />
-              <div className="flex-1 text-sm">
-                <span className="font-bold text-ink">{inv.from.displayName}</span>
-                <span className="text-sub"> 邀请你双排练习</span>
-              </div>
-              <button
-                onClick={() => navigate(`/room/${inv.roomId}`)}
-                className="px-4 py-1.5 bg-accent text-white rounded-xl text-sm font-bold"
-              >
-                加入
-              </button>
-              <button
-                onClick={() => setRoomInvites((prev) => prev.filter((x) => x.roomId !== inv.roomId))}
-                className="text-sub hover:text-ink px-1"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-canvas rounded-2xl p-1 mb-6">
@@ -263,9 +316,14 @@ export default function Buddies() {
                     {STICKERS.map((s) => (
                       <button
                         key={s.key}
+                        type="button"
                         onClick={async () => {
-                          await sendSticker(rel.card.userId, s.key as StickerKey);
-                          setStickerFor(null);
+                          try {
+                            await sendSticker(rel.card.userId, s.key as StickerKey, rel.card.displayName);
+                            setStickerFor(null);
+                          } catch {
+                            setStickerFor(null);
+                          }
                         }}
                         className="px-2 py-2 rounded-xl bg-canvas hover:bg-primary-light text-xs font-bold text-ink transition-colors"
                       >
@@ -279,7 +337,7 @@ export default function Buddies() {
                       发贴纸
                     </button>
                     <button
-                      onClick={() => void startRoom(rel.card.userId)}
+                      onClick={() => startRoom(rel.card.userId, rel.card.displayName)}
                       disabled={rel.card.isSeed}
                       title={rel.card.isSeed ? '示例瓜友不支持双排' : undefined}
                       className="px-3 py-1.5 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed"
@@ -323,6 +381,14 @@ export default function Buddies() {
             </ul>
           )}
         </div>
+      )}
+
+      {roomModal && (
+        <RoomInviteModal
+          buddyName={roomModal.buddyName}
+          onClose={() => setRoomModal(null)}
+          onConfirm={confirmRoom}
+        />
       )}
     </div>
   );

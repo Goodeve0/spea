@@ -1,6 +1,9 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import AppShell from './components/AppShell';
+import BuddyInboxPoller from './components/BuddyInboxPoller';
+import BuddyInviteBanner from './components/BuddyInviteBanner';
+import BuddyToast from './components/BuddyToast';
 
 // ── 重量级页面懒加载（code-splitting）──────────────────────────────────────
 // Home 是首屏，保持同步加载以避免 FCP 延迟
@@ -31,6 +34,9 @@ function PageLoader() {
 function App() {
   return (
     <BrowserRouter>
+      <BuddyInboxPoller />
+      <BuddyInviteBanner />
+      <BuddyToast />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* 带导航壳层的页面（桌面侧栏 / 移动底栏） */}
