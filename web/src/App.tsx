@@ -8,6 +8,7 @@ import ScenarioHub from './pages/ScenarioHub';
 
 const Progress     = lazy(() => import('./pages/Progress'));
 const Achievements = lazy(() => import('./pages/Achievements'));
+const Vocab        = lazy(() => import('./pages/Vocab'));
 const Profile      = lazy(() => import('./pages/Profile'));
 const Conversation = lazy(() => import('./pages/Conversation'));
 const Report       = lazy(() => import('./pages/Report'));
@@ -34,6 +35,7 @@ function App() {
           {/* 带导航壳层的页面（桌面侧栏 / 移动底栏） */}
           <Route element={<AppShell />}>
             <Route path="/" element={<ScenarioHub />} />
+            <Route path="/vocab" element={<Vocab />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/buddies" element={<Buddies />} />
             <Route path="/achievements" element={<Achievements />} />

@@ -19,6 +19,8 @@ import { generateHints, type Hints } from '../llm/hint-generator';
 import { translateToZh } from '../llm/translate';
 import { assessPronunciation } from '../api/pronunciation';
 import { pcmToWavBlob } from '../audio/pcm-recorder';
+import WordableText from '../components/WordableText';
+import WordPopover from '../components/WordPopover';
 
 initTtsEngines();
 
@@ -75,6 +77,8 @@ export default function Conversation() {
   const [recordings, setRecordings] = useState<Record<string, string>>({});
   /** 正在评测中的用户发言 turnId 集合（用于显示"评分中…"） */
   const [assessingIds, setAssessingIds] = useState<string[]>([]);
+  /** 查词弹层（点击对话单词时打开） */
+  const [wordPopover, setWordPopover] = useState<{ word: string; context: string; rect: DOMRect } | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
@@ -470,7 +474,12 @@ export default function Conversation() {
               {turn.role === 'ai' ? (
                 <div className="flex flex-col items-start gap-1 max-w-[75%]">
                   <div className="px-4 py-2.5 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-100 rounded-bl-md">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.text}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      <WordableText
+                        text={turn.text}
+                        onWordClick={(word, context, rect) => setWordPopover({ word, context, rect })}
+                      />
+                    </p>
                     {translations[turn.id] && (
                       <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-wrap mt-1.5 pt-1.5 border-t border-gray-100">
                         {translations[turn.id]}
@@ -717,6 +726,16 @@ export default function Conversation() {
       </div>
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {wordPopover && (
+        <WordPopover
+          word={wordPopover.word}
+          context={wordPopover.context}
+          rect={wordPopover.rect}
+          scenarioId={scenarioId}
+          onClose={() => setWordPopover(null)}
+        />
+      )}
     </div>
   );
 }
