@@ -17,11 +17,15 @@ export default function Sidebar({ xp, streak }: { xp: number; streak: number }) 
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-60 md:flex-shrink-0 md:sticky md:top-0 md:h-screen bg-white border-r border-line">
-      {/* Logo */}
-      <div className="px-4 h-16 flex items-center gap-2 font-extrabold text-ink border-b border-line">
+      {/* Logo（点击进主页） */}
+      <NavLink
+        to="/"
+        className="px-4 h-16 flex items-center gap-2 font-extrabold text-ink border-b border-line hover:bg-canvas transition-colors"
+        title="返回主页"
+      >
         <Mascot size={40} />
         <span className="text-lg leading-none">英语口语<br />顶呱呱</span>
-      </div>
+      </NavLink>
 
       {/* 导航 */}
       <nav className="flex-1 px-3 py-4 space-y-1">

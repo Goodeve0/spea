@@ -21,7 +21,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: '练习', Icon: PracticeIcon, end: true },
+  { to: '/practice', label: '练习', Icon: PracticeIcon },
   { to: '/vocab', label: '生词本', Icon: NoteIcon },
   { to: '/progress', label: '成长', Icon: GrowthIcon },
   { to: '/buddies', label: '瓜友', Icon: BuddyIcon },

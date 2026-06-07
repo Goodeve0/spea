@@ -8,23 +8,34 @@
  */
 import { test, expect } from '@playwright/test';
 
-test.describe('Smoke — 首页 & 场景选择', () => {
-  test('首页渲染 ScenarioHub，展示至少一个场景卡片', async ({ page }) => {
+test.describe('Smoke — 主页 & 场景选择', () => {
+  test('主页渲染 Home，展示开始练习入口/推荐场景', async ({ page }) => {
     await page.goto('/');
 
-    // 等待 React 挂载（Suspense fallback 消失）
     await expect(page.getByText('Loading…')).toHaveCount(0, { timeout: 10_000 });
 
-    // 应能看到"开始练习"或场景卡片列表（至少一个）
-    const cards = page.locator('[data-testid="scenario-card"], .scenario-card, [class*="scenario"]');
-    // 如果没有 data-testid，则退而求其次检查有常见场景文字
+    const pageText = await page.textContent('body');
+    const hasEntry =
+      pageText?.includes('开始练习') ||
+      pageText?.includes('今日推荐') ||
+      pageText?.includes('Interview') ||
+      pageText?.includes('interview') ||
+      pageText?.includes('种瓜得瓜');
+
+    expect(hasEntry).toBe(true);
+  });
+
+  test('练习页 /practice 展示场景卡片', async ({ page }) => {
+    await page.goto('/practice');
+    await expect(page.getByText('Loading…')).toHaveCount(0, { timeout: 10_000 });
+
     const pageText = await page.textContent('body');
     const hasScenario =
+      pageText?.includes('选个场景') ||
       pageText?.includes('Interview') ||
       pageText?.includes('interview') ||
       pageText?.includes('餐厅') ||
-      pageText?.includes('会议') ||
-      (await cards.count()) > 0;
+      pageText?.includes('会议');
 
     expect(hasScenario).toBe(true);
   });

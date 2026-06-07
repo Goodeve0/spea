@@ -3,9 +3,10 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import AppShell from './components/AppShell';
 
 // ── 重量级页面懒加载（code-splitting）──────────────────────────────────────
-// ScenarioHub 是首屏，保持同步加载以避免 FCP 延迟
-import ScenarioHub from './pages/ScenarioHub';
+// Home 是首屏，保持同步加载以避免 FCP 延迟
+import Home from './pages/Home';
 
+const ScenarioHub  = lazy(() => import('./pages/ScenarioHub'));
 const Progress     = lazy(() => import('./pages/Progress'));
 const Achievements = lazy(() => import('./pages/Achievements'));
 const Vocab        = lazy(() => import('./pages/Vocab'));
@@ -34,7 +35,8 @@ function App() {
         <Routes>
           {/* 带导航壳层的页面（桌面侧栏 / 移动底栏） */}
           <Route element={<AppShell />}>
-            <Route path="/" element={<ScenarioHub />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/practice" element={<ScenarioHub />} />
             <Route path="/vocab" element={<Vocab />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/buddies" element={<Buddies />} />
