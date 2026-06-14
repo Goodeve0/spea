@@ -1,9 +1,9 @@
-# 英语口语顶呱呱（spea / speak-coach）
+# 英语口语顶呱呱（speak-coach）
 
 一个基于 Node.js + WebSocket + React 的 AI 英语口语陪练工具。在「面试 / 点餐 / 会议 / 雅思口语」等场景里跟 AI 对话，获得发音评测、语法纠正与课后报告。
 
 > - 在线体验：<https://spea.xiaoyangxiaozhang.xyz>
-> - 演示视频：<https://www.bilibili.com/video/BV1LUE86oE7b/?vd_source=ea4f9691ba92f806edac69ffc8270565>
+> - 演示视频：https://pan.baidu.com/s/1lakVtF7oEkNXvDxNgDQGTw 提取码: wchk （之前视频被b站下架，最新视频链接）
 
 ---
 
